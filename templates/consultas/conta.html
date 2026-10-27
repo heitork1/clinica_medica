@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, campo, selecao, botao_excluir, estado_vazio %}
+
+{% block titulo %}Conta{% endblock %}
+
+{% block conteudo %}
+{% call cabecalho_pagina("Conta da consulta", consulta.nome_paciente ~ " · " ~ (consulta.data_hora_marcado|data_hora)) %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('consultas.agenda', data=consulta.data_hora_marcado.date().isoformat()) }}">
+    <i class="bi bi-arrow-left" aria-hidden="true"></i> Agenda
+  </a>
+{% endcall %}
+
+{% if not consulta.conta %}
+  <div class="card">
+    <div class="card-body">
+      {{ estado_vazio("Esta consulta ainda não tem conta.", "A conta é gerada quando o médico finaliza o atendimento.") }}
+    </div>
+  </div>
+{% else %}
+{% set c = consulta.conta %}
+{% set quitada = c.saldo <= 0 %}
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">Valores</div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr><th>Item</th><th class="text-end">Valor</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Consulta — {{ consulta.nome_medico }}</td>
+              <td class="numero text-end">{{ c.valor_consulta|moeda }}</td>
+            </tr>
+            {% for p in consulta.procedimentos %}
+              <tr>
+                <td>{{ p.quantidade }} × {{ p.descricao }} <span class="text-body-secondary small">({{ p.valor_unitario|moeda }})</span></td>
+                <td class="numero text-end">{{ p.subtotal|moeda }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="linha-total"><td>Total</td><td class="numero text-end">{{ c.valor_total|moeda }}</td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        Situação
+        {% if quitada %}<span class="status status-realizada">Quitada</span>{% else %}<span class="status status-faltou">Em aberto</span>{% endif %}
+      </div>
+      <div class="card-body">
+        <dl class="totais totais-largos">
+          <dt>Total da conta</dt><dd class="numero">{{ c.valor_total|moeda }}</dd>
+          <dt>Pago pelo paciente</dt><dd class="numero">{{ c.pago_paciente|moeda }}</dd>
+          <dt>Pago pelo convênio</dt><dd class="numero">{{ c.pago_convenio|moeda }}</dd>
+          <dt class="total-geral">Saldo</dt><dd class="numero total-geral" data-saldo-atual>{{ c.saldo|moeda }}</dd>
+        </dl>
+        <p class="mb-0 mt-3 small">
+          <span class="text-body-secondary">Paciente:</span>
+          <a href="{{ url_for('pacientes.ficha', id_paciente=consulta.id_paciente) }}">{{ consulta.nome_paciente }}</a><br>
+          <span class="text-body-secondary">Convênio:</span>
+          {% for plano in consulta.convenios %}
+            {{ plano.nome_convenio }}{% if plano not in consulta.convenios_validos %} <span class="status status-cancelada">Vencida</span>{% endif %}{% if not loop.last %}, {% endif %}
+          {% else %}Particular{% endfor %}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">Pagamentos</div>
+  {% if consulta.pagamentos %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Paciente</th>
+            <th>Convênio</th>
+            <th class="text-end">Total</th>
+            {% if pode("pagamentos_excluir") %}<th class="coluna-acoes"><span class="visually-hidden">Ações</span></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for pg in consulta.pagamentos %}
+            <tr>
+              <td class="numero">{{ pg.data_pagamento|data_br }}</td>
+              <td class="numero">
+                {{ pg.valor_pago|moeda }}{% if pg.forma_pagamento %} <span class="text-body-secondary small">({{ formas.get(pg.forma_pagamento, pg.forma_pagamento) }})</span>{% endif %}
+              </td>
+              <td class="numero">{{ pg.valor_convenio|moeda if pg.possui_convenio else "—" }}</td>
+              <td class="numero text-end">{{ pg.total|moeda }}</td>
+              {% if pode("pagamentos_excluir") %}
+                <td class="coluna-acoes">
+                  {{ botao_excluir(url_for("consultas.excluir_pagamento", id_consulta=consulta.id_consulta, id_pagamento=pg.id_pagamento),
+                                   "Excluir o pagamento de " ~ (pg.total|moeda) ~ " de " ~ (pg.data_pagamento|data_br) ~ "? O saldo da conta volta a aumentar.") }}
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card-body text-body-secondary">Nenhum pagamento registrado.</div>
+  {% endif %}
+</div>
+
+{% if not quitada %}
+<div class="card painel-medio">
+  <div class="card-header">Registrar pagamento</div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('consultas.registrar_pagamento', id_consulta=consulta.id_consulta) }}"
+          class="needs-validation" novalidate data-pagamento data-saldo="{{ '%.2f'|format(c.saldo) }}">
+      <div class="row g-3">
+        {{ campo("data_pagamento", "Data do pagamento", valor=dados.get("data_pagamento"), tipo="date", obrigatorio=True,
+                 coluna="col-sm-6", erro=erros.data_pagamento, mensagem_invalido="Informe a data do pagamento.",
+                 atributos={"max": hoje}) }}
+
+        <div class="col-12">
+          {% if consulta.convenios_validos %}
+            <div class="form-check">
+              <input class="form-check-input{% if erros.possui_convenio %} is-invalid{% endif %}" type="checkbox"
+                     id="campo-possui_convenio" name="possui_convenio" {% if dados.get("possui_convenio") == "on" %}checked{% endif %}>
+              <label class="form-check-label" for="campo-possui_convenio">
+                Parte paga pelo convênio
+                <span class="text-body-secondary">
+                  ({% for plano in consulta.convenios_validos %}{{ plano.nome_convenio }}, carteirinha {{ plano.numero_carteirinha }}{% if plano.validade %}, válida até {{ plano.validade|data_br }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %})
+                </span>
+              </label>
+              {% if erros.possui_convenio %}<div class="invalid-feedback">{{ erros.possui_convenio }}</div>{% endif %}
+            </div>
+          {% else %}
+            <p class="form-text mb-0">
+              {% if consulta.convenios %}A carteirinha do convênio está vencida: pagamento particular.
+              {% else %}Paciente sem convênio: pagamento particular.{% endif %}
+            </p>
+            {% if erros.possui_convenio %}<div class="invalid-feedback d-block">{{ erros.possui_convenio }}</div>{% endif %}
+          {% endif %}
+        </div>
+
+        {% if consulta.convenios_validos %}
+          <div class="col-sm-6" data-mostrar-quando="possui_convenio">
+            <div class="row g-3">
+              {{ campo("valor_convenio", "Valor pago pelo convênio (R$)", valor=dados.get("valor_convenio"), obrigatorio=True,
+                       coluna="col-12", erro=erros.valor_convenio, mensagem_invalido="Informe o valor pago pelo convênio.",
+                       atributos={"data-mascara": "moeda", "inputmode": "numeric"}) }}
+            </div>
+          </div>
+        {% endif %}
+        {{ campo("valor_pago", "Valor pago pelo paciente (R$)", valor=dados.get("valor_pago"), coluna="col-sm-6",
+                 erro=erros.valor_pago, mensagem_invalido="Confira o valor: o pagamento não pode passar do saldo.",
+                 atributos={"data-mascara": "moeda", "inputmode": "numeric"}) }}
+        {{ selecao("forma_pagamento", "Forma de pagamento do paciente", formas.items()|list,
+                   selecionado=dados.get("forma_pagamento"), coluna="col-sm-6", erro=erros.forma_pagamento) }}
+
+        <div class="col-12">
+          <p class="resumo-pagamento mb-0" data-resumo-pagamento aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="rodape-formulario">
+        <button type="submit" class="btn btn-primary" data-enviando="Registrando...">Registrar pagamento</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pagamento.js') }}"></script>
+{% endblock %}

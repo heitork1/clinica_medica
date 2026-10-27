@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, etiqueta_status, estado_vazio %}
+
+{% block titulo %}Início{% endblock %}
+
+{% block conteudo %}
+{% set eh_medico = usuario_logado.perfil == "MEDICO" %}
+{% call cabecalho_pagina(saudacao ~ ", " ~ primeiro_nome, titulo_dia) %}
+  {% if pode("pacientes_editar") %}
+    <a class="btn btn-outline-secondary" href="{{ url_for('pacientes.novo') }}">Novo paciente</a>
+  {% endif %}
+  {% if pode("agendar") %}
+    <a class="btn btn-primary" href="{{ url_for('consultas.nova') }}">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i> Nova consulta
+    </a>
+  {% endif %}
+{% endcall %}
+
+{% if proxima %}
+  <div class="proxima-consulta mb-4">
+    <div>
+      <span class="rotulo">Próxima consulta</span>
+      <strong class="numero">{{ proxima.data_hora_marcado|hora }}</strong>
+      · <a href="{{ url_for('pacientes.ficha', id_paciente=proxima.id_paciente) }}">{{ proxima.nome_paciente }}</a>
+      {% if not eh_medico %}com {{ proxima.nome_medico }}{% endif %}
+      {% if proxima.sala %}· {{ proxima.sala }}{% endif %}
+    </div>
+    {% if eh_medico %}
+      <a class="btn btn-sm btn-primary" href="{{ url_for('consultas.atendimento', id_consulta=proxima.id_consulta) }}">Atender</a>
+    {% endif %}
+  </div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="{{ 'col-lg-8' if not eh_medico else 'col-12' }}">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        {{ "Minhas consultas de hoje" if eh_medico else "Consultas de hoje" }}
+        <a class="small fw-normal" href="{{ url_for('consultas.agenda') }}">Abrir agenda</a>
+      </div>
+      {% if consultas %}
+        <div class="resumo-agenda">
+          {% set realizadas = consultas|selectattr("status", "equalto", "REALIZADA")|list|length %}
+          {% set a_realizar = consultas|selectattr("status", "in", ["AGENDADA", "CONFIRMADA"])|list|length %}
+          <strong>{{ consultas|length }} consulta{{ "s" if consultas|length != 1 }}</strong>
+          <span>· {{ realizadas }} realizada{{ "s" if realizadas != 1 }}</span>
+          <span>· {{ a_realizar }} a realizar</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Horário</th>
+                <th>Paciente</th>
+                {% if not eh_medico %}<th class="d-none d-md-table-cell">Médico</th>{% endif %}
+                <th>Status</th>
+                <th class="coluna-acoes"><span class="visually-hidden">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in consultas %}
+                <tr class="{% if proxima and c.id_consulta == proxima.id_consulta %}linha-proxima{% elif c.status in ('CANCELADA', 'FALTOU') %}linha-inativa{% endif %}">
+                  <td class="numero">{{ c.data_hora_marcado|hora }}</td>
+                  <td><a href="{{ url_for('pacientes.ficha', id_paciente=c.id_paciente) }}">{{ c.nome_paciente }}</a></td>
+                  {% if not eh_medico %}<td class="d-none d-md-table-cell">{{ c.nome_medico }}</td>{% endif %}
+                  <td>{{ etiqueta_status(c.status) }}</td>
+                  <td class="coluna-acoes">
+                    {% if eh_medico and c.status in ("AGENDADA", "CONFIRMADA") %}
+                      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('consultas.atendimento', id_consulta=c.id_consulta) }}">Atender</a>
+                    {% elif c.status == "REALIZADA" and pode("financeiro") %}
+                      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('consultas.conta', id_consulta=c.id_consulta) }}">Conta</a>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card-body">
+          {% call estado_vazio("Nenhuma consulta marcada para hoje.") %}
+            {% if pode("agendar") %}
+              <a class="btn btn-outline-primary" href="{{ url_for('consultas.nova') }}">Marcar consulta</a>
+            {% endif %}
+          {% endcall %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if pode("financeiro") %}
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-header">Contas em aberto</div>
+        {% if contas_em_aberto %}
+          <ul class="list-group list-group-flush">
+            {% for conta in contas_em_aberto %}
+              <li class="list-group-item d-flex justify-content-between align-items-start gap-2">
+                <div>
+                  <a href="{{ url_for('consultas.conta', id_consulta=conta.id_consulta) }}">{{ conta.nome_paciente }}</a>
+                  <div class="small text-body-secondary numero">{{ conta.data_hora_marcado|data_br }}</div>
+                </div>
+                <span class="numero">{{ conta.saldo|moeda }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="card-body text-body-secondary">Nenhuma conta em aberto.</div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

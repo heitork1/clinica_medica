@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, campo, area_texto, etiqueta_status %}
+
+{# linha de procedimento: a mesma macro desenha as linhas existentes e o <template> das novas #}
+{% macro linha_procedimento(procedimentos, item={}) %}
+<div class="linha-dinamica">
+  <div class="campos row g-2 align-items-center">
+    <div class="col-md-6">
+      <span class="rotulo-linha d-md-none">Procedimento</span>
+      <select class="form-select" name="id_procedimento" aria-label="Procedimento">
+        <option value="">Selecione...</option>
+        {% for p in procedimentos %}
+          <option value="{{ p.id_procedimento }}" data-valor="{{ '%.2f'|format(p.valor) }}"
+                  {% if p.id_procedimento|string == item.get("id_procedimento")|string %}selected{% endif %}>{{ p.descricao }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-4 col-md-2">
+      <span class="rotulo-linha d-md-none">Qtd.</span>
+      <input class="form-control" type="number" name="quantidade" min="1" max="99" value="{{ item.get('quantidade') or 1 }}"
+             aria-label="Quantidade">
+    </div>
+    <div class="col-4 col-md-2 numero text-end">
+      <span class="rotulo-linha d-md-none">Unitário</span>
+      <span data-valor-unitario>—</span>
+    </div>
+    <div class="col-4 col-md-2 numero text-end">
+      <span class="rotulo-linha d-md-none">Subtotal</span>
+      <span data-subtotal>—</span>
+    </div>
+  </div>
+  <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover procedimento">
+    <i class="bi bi-x-lg" aria-hidden="true"></i>
+  </button>
+</div>
+{% endmacro %}
+
+{% block titulo %}Atendimento{% endblock %}
+
+{% block conteudo %}
+{% set realizada = consulta.status == "REALIZADA" %}
+{% call cabecalho_pagina("Atendimento", consulta.nome_paciente ~ " · " ~ (consulta.data_hora_marcado|data_hora)) %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('consultas.agenda', data=consulta.data_hora_marcado.date().isoformat()) }}">
+    <i class="bi bi-arrow-left" aria-hidden="true"></i> Agenda
+  </a>
+{% endcall %}
+
+<div class="card mb-4">
+  <div class="card-body">
+    <dl class="resumo-consulta">
+      <div>
+        <dt>Paciente</dt>
+        <dd>
+          <a href="{{ url_for('pacientes.ficha', id_paciente=consulta.id_paciente) }}">{{ consulta.nome_paciente }}</a>
+          {% if consulta.data_nasc %}<span class="text-body-secondary">· {{ consulta.data_nasc|idade }} anos</span>{% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Convênio</dt>
+        <dd>
+          {% for plano in consulta.convenios %}
+            {{ plano.nome_convenio }}{% if plano.validade and plano.validade < consulta.data_hora_marcado.date() %} <span class="status status-cancelada">Vencida</span>{% endif %}{% if not loop.last %}, {% endif %}
+          {% else %}Particular{% endfor %}
+        </dd>
+      </div>
+      <div><dt>Médico</dt><dd>{{ consulta.nome_medico }}</dd></div>
+      <div><dt>Sala</dt><dd>{{ consulta.sala or "—" }}</dd></div>
+      <div><dt>Marcada para</dt><dd class="numero">{{ consulta.data_hora_marcado|data_hora }}</dd></div>
+      <div><dt>Status</dt><dd>{{ etiqueta_status(consulta.status) }}</dd></div>
+    </dl>
+  </div>
+</div>
+
+{% if not pode_registrar %}
+  <div class="alert alert-info">
+    {% if consulta.pago %}
+      Somente leitura: a conta desta consulta já tem pagamento, então o atendimento não pode mais ser alterado.
+    {% else %}
+      Somente leitura: o atendimento é registrado pelo médico da consulta.
+    {% endif %}
+  </div>
+{% endif %}
+{% if consulta.conta and pode("financeiro") %}
+  <p><a href="{{ url_for('consultas.conta', id_consulta=consulta.id_consulta) }}">Ver a conta e os pagamentos</a></p>
+{% endif %}
+
+<form method="post" class="needs-validation" novalidate data-atendimento>
+  <fieldset{% if not pode_registrar %} disabled{% endif %}>
+    <div class="card mb-4">
+      <div class="card-header">Prontuário</div>
+      <div class="card-body">
+        <div class="row g-3">
+          {{ campo("data_hora_realizado", "Data e hora do atendimento", valor=dados.data_hora_realizado,
+                   tipo="datetime-local", obrigatorio=True, coluna="col-md-5", erro=erros.data_hora_realizado,
+                   mensagem_invalido="Informe a data e a hora do atendimento.") }}
+          {{ area_texto("sintomas", "Sintomas relatados", valor=dados.sintomas, linhas=3, erro=erros.sintomas) }}
+          {{ area_texto("diagnostico", "Diagnóstico", valor=dados.diagnostico, linhas=2, obrigatorio=True,
+                        erro=erros.diagnostico) }}
+          {{ area_texto("prescricao", "Prescrição", valor=dados.prescricao, linhas=4, erro=erros.prescricao) }}
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">Procedimentos realizados</div>
+      <div class="card-body">
+        {% if procedimentos %}
+          <div data-linhas>
+            <div class="linha-dinamica cabecalho-linhas d-none d-md-flex" aria-hidden="true">
+              <div class="campos row g-2">
+                <div class="col-md-6">Procedimento</div>
+                <div class="col-md-2">Qtd.</div>
+                <div class="col-md-2 text-end">Unitário</div>
+                <div class="col-md-2 text-end">Subtotal</div>
+              </div>
+              <span class="espaco-botao"></span>
+            </div>
+            <div data-linhas-lista>
+              {% for item in dados.procedimentos %}
+                {{ linha_procedimento(procedimentos, item) }}
+              {% endfor %}
+            </div>
+            <template data-linhas-modelo>{{ linha_procedimento(procedimentos) }}</template>
+            {% if pode_registrar %}
+              <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-adicionar-linha>
+                <i class="bi bi-plus-lg" aria-hidden="true"></i> Adicionar procedimento
+              </button>
+            {% endif %}
+          </div>
+          {% if erros.procedimentos %}<div class="invalid-feedback d-block">{{ erros.procedimentos }}</div>{% endif %}
+        {% else %}
+          <p class="text-body-secondary mb-0">Nenhum procedimento cadastrado na clínica.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header">Conta</div>
+      <div class="card-body">
+        <div class="row g-3 align-items-start">
+          {{ campo("valor_consulta", "Valor da consulta (R$)", valor=dados.valor_consulta, obrigatorio=True,
+                   coluna="col-md-4", erro=erros.valor_consulta, mensagem_invalido="Informe o valor da consulta.",
+                   atributos={"data-mascara": "moeda", "inputmode": "numeric"}) }}
+          <div class="col-md-8">
+            <dl class="totais">
+              <dt>Procedimentos</dt><dd class="numero" data-total-procedimentos>—</dd>
+              <dt>Consulta</dt><dd class="numero" data-total-consulta>—</dd>
+              <dt class="total-geral">Total da conta</dt><dd class="numero total-geral" data-total-geral>—</dd>
+            </dl>
+          </div>
+        </div>
+        {% if consulta.conta %}
+          <p class="form-text mb-0">Conta nº {{ consulta.id_conta }} gerada no atendimento. Ao salvar de novo, os valores são atualizados.</p>
+        {% else %}
+          <p class="form-text mb-0">A conta é gerada ao finalizar o atendimento.</p>
+        {% endif %}
+      </div>
+    </div>
+  </fieldset>
+
+  {% if pode_registrar %}
+    <div class="rodape-formulario">
+      <a class="btn btn-outline-secondary" href="{{ url_for('consultas.agenda', data=consulta.data_hora_marcado.date().isoformat()) }}">Cancelar</a>
+      <button type="submit" class="btn btn-primary" data-enviando="Salvando...">
+        {{ "Salvar alterações" if realizada else "Finalizar atendimento" }}
+      </button>
+    </div>
+  {% endif %}
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/atendimento.js') }}"></script>
+{% endblock %}

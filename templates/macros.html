@@ -1,0 +1,97 @@
+{# Macros reaproveitadas pelas páginas.
+   Importar com: {% from "macros.html" import campo, selecao, cabecalho_pagina %} #}
+
+
+{# Título da página à esquerda e, opcionalmente, botões à direita:
+   {% call cabecalho_pagina("Pacientes") %}<a class="btn btn-primary" href="...">Novo paciente</a>{% endcall %} #}
+{% macro cabecalho_pagina(titulo, subtitulo=None) %}
+<div class="cabecalho-pagina">
+  <div>
+    <h1>{{ titulo }}</h1>
+    {% if subtitulo %}<p class="subtitulo">{{ subtitulo }}</p>{% endif %}
+  </div>
+  {% if caller %}<div class="acoes">{{ caller() }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+
+{# Campo de texto com rótulo e mensagem de erro.
+   atributos: dicionário com atributos extras, ex. {"data-mascara": "cpf", "maxlength": 14}
+   erro: mensagem vinda do servidor; se informada, o campo já aparece marcado como inválido #}
+{% macro campo(nome, rotulo, valor="", tipo="text", obrigatorio=False, erro=None, ajuda=None,
+               mensagem_invalido="Preencha este campo.", coluna="col-md-6", atributos={}) %}
+<div class="{{ coluna }}">
+  <label class="form-label" for="campo-{{ nome }}">
+    {{ rotulo }}{% if obrigatorio %} <span class="obrigatorio" aria-hidden="true">*</span>{% endif %}
+  </label>
+  <input class="form-control{% if erro %} is-invalid{% endif %}" type="{{ tipo }}" id="campo-{{ nome }}"
+         name="{{ nome }}" value="{{ valor if valor is not none else '' }}"
+         {%- if obrigatorio %} required{% endif %} {{ atributos|xmlattr }}>
+  {% if ajuda %}<div class="form-text">{{ ajuda }}</div>{% endif %}
+  <div class="invalid-feedback">{{ erro or mensagem_invalido }}</div>
+</div>
+{% endmacro %}
+
+
+{# Lista de opções. opcoes: lista de pares (valor, texto) #}
+{% macro selecao(nome, rotulo, opcoes, selecionado=None, obrigatorio=False, erro=None,
+                 texto_vazio="Selecione...", coluna="col-md-6", atributos={}) %}
+<div class="{{ coluna }}">
+  <label class="form-label" for="campo-{{ nome }}">
+    {{ rotulo }}{% if obrigatorio %} <span class="obrigatorio" aria-hidden="true">*</span>{% endif %}
+  </label>
+  <select class="form-select{% if erro %} is-invalid{% endif %}" id="campo-{{ nome }}" name="{{ nome }}"
+          {%- if obrigatorio %} required{% endif %} {{ atributos|xmlattr }}>
+    {% if texto_vazio %}<option value="">{{ texto_vazio }}</option>{% endif %}
+    {% for valor, texto in opcoes %}
+      <option value="{{ valor }}" {% if valor|string == selecionado|string %}selected{% endif %}>{{ texto }}</option>
+    {% endfor %}
+  </select>
+  <div class="invalid-feedback">{{ erro or "Escolha uma opção." }}</div>
+</div>
+{% endmacro %}
+
+
+{% macro area_texto(nome, rotulo, valor="", linhas=3, obrigatorio=False, erro=None, coluna="col-12") %}
+<div class="{{ coluna }}">
+  <label class="form-label" for="campo-{{ nome }}">
+    {{ rotulo }}{% if obrigatorio %} <span class="obrigatorio" aria-hidden="true">*</span>{% endif %}
+  </label>
+  <textarea class="form-control{% if erro %} is-invalid{% endif %}" id="campo-{{ nome }}" name="{{ nome }}"
+            rows="{{ linhas }}"{% if obrigatorio %} required{% endif %}>{{ valor or "" }}</textarea>
+  <div class="invalid-feedback">{{ erro or "Preencha este campo." }}</div>
+</div>
+{% endmacro %}
+
+
+{# Status da consulta, com a cor definida em estilo.css (.status-agendada etc.) #}
+{% macro etiqueta_status(status) %}
+{% set rotulos = {"AGENDADA": "Agendada", "CONFIRMADA": "Confirmada", "REALIZADA": "Realizada",
+                  "CANCELADA": "Cancelada", "FALTOU": "Faltou"} %}
+<span class="status status-{{ status|lower }}">{{ rotulos.get(status, status) }}</span>
+{% endmacro %}
+
+
+{# Botão que envia um POST de exclusão; comum.js pede confirmação antes #}
+{% macro botao_excluir(acao, mensagem, rotulo="Excluir", classe="btn btn-sm btn-outline-danger") %}
+<form method="post" action="{{ acao }}" class="d-inline" data-confirmar="{{ mensagem }}">
+  <button type="submit" class="{{ classe }}">{{ rotulo }}</button>
+</form>
+{% endmacro %}
+
+
+{# Mensagem para listas vazias; aceita um botão via {% call %} #}
+{% macro estado_vazio(mensagem, detalhe=None) %}
+<div class="estado-vazio">
+  <p class="mb-1">{{ mensagem }}</p>
+  {% if detalhe %}<p class="text-body-secondary mb-0">{{ detalhe }}</p>{% endif %}
+  {% if caller %}<div class="mt-3">{{ caller() }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+
+{% macro item_menu(rotulo, icone, url, ativo=False) %}
+<a class="item-menu{% if ativo %} ativo{% endif %}" href="{{ url }}"{% if ativo %} aria-current="page"{% endif %}>
+  <i class="bi bi-{{ icone }}" aria-hidden="true"></i> {{ rotulo }}
+</a>
+{% endmacro %}

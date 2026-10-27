@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, etiqueta_status, estado_vazio %}
+
+{% block titulo %}Agenda{% endblock %}
+
+{% block conteudo %}
+{% set eh_medico = usuario_logado.perfil == "MEDICO" %}
+{% call cabecalho_pagina("Agenda" if not eh_medico else "Minha agenda", titulo_dia) %}
+  {% if pode("agendar") %}
+    <a class="btn btn-primary" href="{{ url_for('consultas.nova') }}">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i> Nova consulta
+    </a>
+  {% endif %}
+{% endcall %}
+
+{# filtros mantidos ao trocar de dia; o médico não escolhe médico #}
+{% set filtros = {"id_medico": None if eh_medico else id_medico, "status": status} %}
+
+<div class="card">
+  <form class="barra-filtros" method="get">
+    <div class="btn-group" role="group" aria-label="Navegar entre dias">
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('consultas.agenda', data=anterior.isoformat(), **filtros) }}"
+         aria-label="Dia anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+      <a class="btn btn-sm btn-outline-secondary{% if dia == hoje %} active{% endif %}"
+         href="{{ url_for('consultas.agenda', data=hoje.isoformat(), **filtros) }}">Hoje</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('consultas.agenda', data=seguinte.isoformat(), **filtros) }}"
+         aria-label="Próximo dia"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+    </div>
+    <input type="date" class="form-control form-control-sm filtro-data" name="data" value="{{ dia.isoformat() }}" aria-label="Data">
+    {% if not eh_medico %}
+      <select class="form-select form-select-sm filtro-select" name="id_medico" aria-label="Médico">
+        <option value="">Todos os médicos</option>
+        {% for m in medicos %}
+          <option value="{{ m.id_medico }}" {% if m.id_medico == id_medico %}selected{% endif %}>{{ m.nome_medico }}</option>
+        {% endfor %}
+      </select>
+    {% endif %}
+    <select class="form-select form-select-sm filtro-select" name="status" aria-label="Status">
+      <option value="">Todos os status</option>
+      {% for valor, rotulo in opcoes_status.items() %}
+        <option value="{{ valor }}" {% if valor == status %}selected{% endif %}>{{ rotulo }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-sm btn-outline-secondary">Aplicar</button>
+  </form>
+
+  {% if consultas %}
+    <div class="resumo-agenda">
+      <strong>{{ consultas|length }} consulta{{ "s" if consultas|length != 1 }}</strong>
+      {% set nomes = {"AGENDADA": ("agendada", "agendadas"), "CONFIRMADA": ("confirmada", "confirmadas"),
+                      "REALIZADA": ("realizada", "realizadas"), "CANCELADA": ("cancelada", "canceladas"),
+                      "FALTOU": ("falta", "faltas")} %}
+      {% for valor, formas in nomes.items() %}
+        {% set n = consultas|selectattr("status", "equalto", valor)|list|length %}
+        {% if n %}<span>· {{ n }} {{ formas[0] if n == 1 else formas[1] }}</span>{% endif %}
+      {% endfor %}
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover tabela-agenda">
+        <thead>
+          <tr>
+            <th>Horário</th>
+            <th>Paciente</th>
+            {% if not eh_medico %}<th class="d-none d-md-table-cell">Médico</th>{% endif %}
+            <th class="d-none d-md-table-cell">Sala</th>
+            <th>Status</th>
+            <th class="coluna-acoes"><span class="visually-hidden">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in consultas %}
+            {% set hora = c.data_hora_marcado|hora %}
+            <tr{% if c.status in ("CANCELADA", "FALTOU") %} class="linha-inativa"{% endif %}>
+              <td class="numero fw-medium">{{ hora }}</td>
+              <td>
+                <a href="{{ url_for('pacientes.ficha', id_paciente=c.id_paciente) }}">{{ c.nome_paciente }}</a>
+                {% if not eh_medico %}<div class="d-md-none small text-body-secondary">{{ c.nome_medico }}</div>{% endif %}
+              </td>
+              {% if not eh_medico %}<td class="d-none d-md-table-cell">{{ c.nome_medico or "—" }}</td>{% endif %}
+              <td class="d-none d-md-table-cell">{{ c.sala or "—" }}</td>
+              <td>{{ etiqueta_status(c.status) }}</td>
+              <td class="coluna-acoes">
+                {% if pode("agendar") %}
+                  {% for novo in c.proximos_status %}
+                    <form method="post" class="d-inline" action="{{ url_for('consultas.alterar_status', id_consulta=c.id_consulta) }}"
+                      {%- if novo == "CANCELADA" %} data-confirmar="Cancelar a consulta de {{ c.nome_paciente }} às {{ hora }}?" data-confirmar-botao="Cancelar consulta"
+                      {%- elif novo == "FALTOU" %} data-confirmar="Registrar que {{ c.nome_paciente }} faltou à consulta das {{ hora }}?" data-confirmar-botao="Registrar falta"{% endif %}>
+                      <input type="hidden" name="status" value="{{ novo }}">
+                      <input type="hidden" name="voltar" value="{{ request.full_path }}">
+                      {% if novo == "CONFIRMADA" %}
+                        <button type="submit" class="btn btn-sm btn-outline-primary">Confirmar</button>
+                      {% elif novo == "CANCELADA" %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Cancelar</button>
+                      {% else %}
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Faltou</button>
+                      {% endif %}
+                    </form>
+                  {% endfor %}
+                {% endif %}
+                {% if eh_medico and c.id_medico == usuario_logado.id_medico and c.status in ("AGENDADA", "CONFIRMADA") %}
+                  <a class="btn btn-sm btn-primary" href="{{ url_for('consultas.atendimento', id_consulta=c.id_consulta) }}">Atender</a>
+                {% elif c.status == "REALIZADA" and pode("prontuario") and (not eh_medico or c.id_medico == usuario_logado.id_medico) %}
+                  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('consultas.atendimento', id_consulta=c.id_consulta) }}">Atendimento</a>
+                {% endif %}
+                {% if c.status == "REALIZADA" and pode("financeiro") %}
+                  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('consultas.conta', id_consulta=c.id_consulta) }}">Conta</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card-body">
+      {% call estado_vazio("Nenhuma consulta neste dia" ~ (" com esses filtros" if id_medico and not eh_medico or status else "") ~ ".") %}
+        {% if pode("agendar") %}
+          <a class="btn btn-primary" href="{{ url_for('consultas.nova') }}">Marcar consulta</a>
+        {% endif %}
+      {% endcall %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

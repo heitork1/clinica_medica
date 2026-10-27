@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, estado_vazio %}
+
+{% block titulo %}Página não encontrada{% endblock %}
+
+{% block conteudo %}
+{{ cabecalho_pagina("Página não encontrada") }}
+<div class="card">
+  <div class="card-body">
+    {% call estado_vazio("O endereço não existe ou o registro foi removido.") %}
+      <a class="btn btn-outline-secondary" href="{{ url_for('inicio.inicio') }}">Voltar ao início</a>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

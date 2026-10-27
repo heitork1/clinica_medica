@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, campo, selecao, area_texto, etiqueta_status, estado_vazio %}
+{% set menu_ativo = "estilo" %}
+
+{% block titulo %}Guia visual{% endblock %}
+
+{% block conteudo %}
+{% call cabecalho_pagina("Guia visual", "Componentes usados nas telas do sistema. Disponível só em modo de desenvolvimento.") %}
+  <button type="button" class="btn btn-outline-secondary">Secundário</button>
+  <button type="button" class="btn btn-primary"><i class="bi bi-plus-lg" aria-hidden="true"></i> Ação principal</button>
+{% endcall %}
+
+{# ---------------------------------------------------------------- cores #}
+<div class="card mb-4">
+  <div class="card-header">Cores</div>
+  <div class="card-body">
+    <div class="amostras-cor">
+      {% for nome, valor in [("fundo", "#f4f3ef"), ("superficie", "#ffffff"), ("borda", "#dcd9d0"),
+                             ("texto", "#22262a"), ("texto-suave", "#6b6f73"), ("principal", "#1d5c57"),
+                             ("principal-escuro", "#15443f"), ("perigo", "#a23b2c")] %}
+        <div class="amostra-cor">
+          <div class="cor cor-{{ nome }}"></div>
+          <div class="legenda">--{{ nome }}<br><code>{{ valor }}</code></div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ------------------------------------------------- tipografia e botões #}
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Texto</div>
+      <div class="card-body">
+        <h2 class="h5">Título de seção</h2>
+        <p>Texto corrido em IBM Plex Sans, 15px. Usado em formulários, tabelas e mensagens.</p>
+        <p class="text-body-secondary">Texto secundário, para legendas e informações de apoio.</p>
+        <p class="mb-0 numero">Números tabulares: 08:30 · 14:00 · {{ 1234.5|moeda }} · {{ 89.9|moeda }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Botões</div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-primary">Salvar</button>
+          <button type="button" class="btn btn-outline-primary">Confirmar</button>
+          <button type="button" class="btn btn-outline-secondary">Cancelar</button>
+          <button type="button" class="btn btn-danger">Excluir</button>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-sm btn-outline-secondary">Editar</button>
+          <button type="button" class="btn btn-sm btn-outline-danger">Excluir</button>
+          <button type="button" class="btn btn-sm btn-primary" disabled>Desabilitado</button>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          {{ etiqueta_status("AGENDADA") }}
+          {{ etiqueta_status("CONFIRMADA") }}
+          {{ etiqueta_status("REALIZADA") }}
+          {{ etiqueta_status("CANCELADA") }}
+          {{ etiqueta_status("FALTOU") }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ---------------------------------------------------------------- avisos #}
+<div class="card mb-4">
+  <div class="card-header">Avisos</div>
+  <div class="card-body">
+    <div class="alert alert-success">Paciente cadastrado com sucesso.</div>
+    <div class="alert alert-danger">Já existe uma consulta para este médico às 14:00.</div>
+    <div class="alert alert-warning">A carteirinha do convênio venceu em 31/08.</div>
+    <div class="alert alert-info mb-0">A conta é gerada quando o atendimento é finalizado.</div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------ formulário #}
+<div class="card mb-4">
+  <div class="card-header">Formulário</div>
+  <div class="card-body">
+    <p class="text-body-secondary">
+      Envie vazio para ver a validação. CPF, telefone e valor usam máscara; o CPF é conferido pelos dígitos
+      verificadores (teste com 123.456.789-09). Ao enviar, o botão mostra "Salvando..." e a página volta com um aviso.
+    </p>
+    <form method="post" class="needs-validation" novalidate>
+      <section class="secao-formulario">
+        <h2>Dados pessoais</h2>
+        <div class="row g-3">
+          {{ campo("nome", "Nome completo", obrigatorio=True, coluna="col-md-8") }}
+          {{ campo("data_nasc", "Data de nascimento", tipo="date", coluna="col-md-4") }}
+          {{ campo("cpf", "CPF", obrigatorio=True, coluna="col-md-4", mensagem_invalido="Informe um CPF válido.",
+                   atributos={"data-mascara": "cpf", "inputmode": "numeric", "maxlength": 14, "placeholder": "000.000.000-00"}) }}
+          {{ selecao("sexo", "Sexo", [("Feminino", "Feminino"), ("Masculino", "Masculino"), ("Outro", "Outro")], coluna="col-md-4") }}
+          {{ campo("valor", "Valor", coluna="col-md-4", ajuda="Digite só os números.",
+                   atributos={"data-mascara": "moeda", "inputmode": "numeric"}) }}
+          {{ area_texto("observacoes", "Observações", linhas=2) }}
+          <div class="col-12">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="campo-aceite" name="aceite" required>
+              <label class="form-check-label" for="campo-aceite">Dados conferidos com o documento</label>
+              <div class="invalid-feedback">Confirme antes de salvar.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao-formulario">
+        <h2>Telefones</h2>
+        <div data-linhas data-linhas-minimo="1">
+          <div data-linhas-lista>
+            <div class="linha-dinamica">
+              <div class="campos">
+                <input class="form-control" type="text" name="telefone" aria-label="Telefone"
+                       data-mascara="telefone" inputmode="numeric" maxlength="15" placeholder="(00) 00000-0000">
+                <div class="invalid-feedback">Telefone incompleto.</div>
+              </div>
+              <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover telefone">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <template data-linhas-modelo>
+            <div class="linha-dinamica">
+              <div class="campos">
+                <input class="form-control" type="text" name="telefone" aria-label="Telefone"
+                       data-mascara="telefone" inputmode="numeric" maxlength="15" placeholder="(00) 00000-0000">
+                <div class="invalid-feedback">Telefone incompleto.</div>
+              </div>
+              <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover telefone">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
+            </div>
+          </template>
+          <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-adicionar-linha>
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> Adicionar telefone
+          </button>
+        </div>
+      </section>
+
+      <div class="rodape-formulario">
+        <a class="btn btn-outline-secondary" href="{{ url_for('inicio.estilo') }}">Cancelar</a>
+        <button type="submit" class="btn btn-primary" data-enviando="Salvando...">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ---------------------------------------------------------------- tabela #}
+<div class="card mb-4">
+  <div class="card-header">Tabela com filtro</div>
+  <div class="barra-filtros">
+    <input type="search" class="form-control form-control-sm" placeholder="Filtrar por nome, CPF ou convênio"
+           aria-label="Filtrar tabela" data-filtro-tabela="#tabela-exemplo">
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover" id="tabela-exemplo">
+      <thead>
+        <tr>
+          <th>Paciente</th>
+          <th>CPF</th>
+          <th>Convênio</th>
+          <th>Próxima consulta</th>
+          <th>Status</th>
+          <th class="coluna-acoes"><span class="visually-hidden">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for nome, cpf, convenio, data, status in [
+             ("Mariana Kowalski", "123.456.789-09", "Unimed", "2026-11-04 08:30", "CONFIRMADA"),
+             ("João Pedro Antunes", "987.654.321-00", "Particular", "2026-11-04 09:00", "AGENDADA"),
+             ("Luíza Hoffmann", "321.654.987-91", "SC Saúde", "2026-11-03 14:00", "REALIZADA"),
+             ("Carlos Eduardo Ribeiro", "456.789.123-55", "Unimed", "2026-11-03 15:30", "FALTOU"),
+             ("Ana Beatriz Schmitt", "741.852.963-10", "Particular", "2026-11-05 10:00", "CANCELADA")] %}
+          <tr>
+            <td>{{ nome }}</td>
+            <td class="numero">{{ cpf }}</td>
+            <td>{{ convenio }}</td>
+            <td class="numero">{{ data|data_hora }}</td>
+            <td>{{ etiqueta_status(status) }}</td>
+            <td class="coluna-acoes">
+              <a class="btn btn-sm btn-outline-secondary" href="#">Editar</a>
+              <form method="post" class="d-inline" data-confirmar="Excluir o cadastro de {{ nome }}?">
+                <input type="hidden" name="acao" value="excluir">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        <tr data-sem-resultado hidden>
+          <td colspan="6" class="text-center text-body-secondary py-4">Nenhum paciente encontrado com esse filtro.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ----------------------------------------------------------- lista vazia #}
+<div class="card">
+  <div class="card-header">Lista vazia</div>
+  <div class="card-body">
+    {% call estado_vazio("Nenhuma consulta marcada para este dia.", "Use o botão abaixo para agendar.") %}
+      <a class="btn btn-primary" href="#">Nova consulta</a>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

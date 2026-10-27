@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, campo, botao_excluir, estado_vazio %}
+
+{# Tela única para convênios, especialidades, procedimentos e salas.
+   As colunas e os campos vêm da configuração em negocio/cadastros.py. #}
+
+{% block titulo %}{{ cadastro.titulo }}{% endblock %}
+
+{% block conteudo %}
+{{ cabecalho_pagina(cadastro.titulo) }}
+
+<div class="row g-4">
+  {# ------------------------------------------------------- formulário #}
+  <div class="col-lg-5 order-lg-2">
+    <div class="card">
+      <div class="card-header">{{ cadastro.titulo_editar if id_edicao else cadastro.titulo_novo }}</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('cadastros.lista', tipo=tipo) }}" class="needs-validation" novalidate>
+          {% if id_edicao %}<input type="hidden" name="id" value="{{ id_edicao }}">{% endif %}
+          <div class="row g-3">
+            {% for c in cadastro.campos %}
+              {% set valor = dados.get(c.nome) %}
+              {% if c.tipo == "moeda" %}
+                {# valor do banco (Decimal) vai com duas casas para a máscara formatar #}
+                {% if valor is number %}{% set valor = "%.2f"|format(valor) %}{% endif %}
+                {{ campo(c.nome, c.rotulo, valor=valor, obrigatorio=True, coluna="col-sm-6", erro=erros.get(c.nome),
+                         mensagem_invalido="Informe o valor.",
+                         atributos={"data-mascara": "moeda", "inputmode": "numeric", "placeholder": "0,00"}) }}
+              {% else %}
+                {{ campo(c.nome, c.rotulo, valor=valor, obrigatorio=True, coluna="col-12", erro=erros.get(c.nome),
+                         mensagem_invalido="Preencha este campo.", atributos={"maxlength": c.tamanho}) }}
+              {% endif %}
+            {% endfor %}
+          </div>
+          <div class="rodape-formulario">
+            {% if id_edicao %}
+              <a class="btn btn-outline-secondary" href="{{ url_for('cadastros.lista', tipo=tipo) }}">Cancelar</a>
+            {% endif %}
+            <button type="submit" class="btn btn-primary" data-enviando="Salvando...">
+              {{ "Salvar alterações" if id_edicao else "Cadastrar" }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# ----------------------------------------------------------- tabela #}
+  <div class="col-lg-7 order-lg-1">
+    <div class="card">
+      {% if registros %}
+        <div class="barra-filtros">
+          <input type="search" class="form-control form-control-sm" placeholder="Filtrar"
+                 aria-label="Filtrar {{ cadastro.titulo|lower }}" data-filtro-tabela="#tabela-cadastro">
+          <span class="text-body-secondary small ms-auto">{{ registros|length }} cadastrad{{ cadastro.artigo }}{{ "s" if registros|length != 1 }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover" id="tabela-cadastro">
+            <thead>
+              <tr>
+                {% if cadastro.rotulo_chave %}<th class="numero d-none d-sm-table-cell">{{ cadastro.rotulo_chave }}</th>{% endif %}
+                {% for c in cadastro.campos %}
+                  <th{% if c.tipo == "moeda" %} class="text-end"{% endif %}>{{ c.rotulo }}</th>
+                {% endfor %}
+                <th class="coluna-acoes"><span class="visually-hidden">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for registro in registros %}
+                {% set id_registro = registro[cadastro.dao.chave] %}
+                <tr{% if id_registro == id_edicao %} class="table-active"{% endif %}>
+                  {% if cadastro.rotulo_chave %}<td class="numero d-none d-sm-table-cell">{{ id_registro }}</td>{% endif %}
+                  {% for c in cadastro.campos %}
+                    {% if c.tipo == "moeda" %}
+                      <td class="numero text-end">{{ registro[c.nome]|moeda }}</td>
+                    {% else %}
+                      <td>{{ registro[c.nome] }}</td>
+                    {% endif %}
+                  {% endfor %}
+                  <td class="coluna-acoes">
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="{{ url_for('cadastros.lista', tipo=tipo, editar=id_registro) }}">Editar</a>
+                    {{ botao_excluir(url_for('cadastros.excluir', tipo=tipo, id_registro=id_registro),
+                                     "Excluir " ~ cadastro.artigo ~ " " ~ cadastro.singular ~ ' "' ~ cadastro.descrever(registro) ~ '"?') }}
+                  </td>
+                </tr>
+              {% endfor %}
+              <tr data-sem-resultado hidden>
+                <td colspan="{{ cadastro.campos|length + (2 if cadastro.rotulo_chave else 1) }}"
+                    class="text-center text-body-secondary py-4">Nada encontrado com esse filtro.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card-body">
+          {{ estado_vazio("Nenhum" ~ ("a" if cadastro.feminino) ~ " " ~ cadastro.singular ~ " cadastrad" ~ cadastro.artigo ~ ".",
+                          "Use o formulário para cadastrar.") }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

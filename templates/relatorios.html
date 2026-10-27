@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina %}
+
+{% block titulo %}Relatórios{% endblock %}
+
+{% block conteudo %}
+{% call cabecalho_pagina("Relatórios", "Período de " ~ (inicio|data_br) ~ " a " ~ (fim|data_br)) %}
+  <button type="button" class="btn btn-outline-secondary" data-imprimir>
+    <i class="bi bi-printer" aria-hidden="true"></i> Imprimir
+  </button>
+{% endcall %}
+
+<div class="card mb-4 nao-imprimir">
+  <form class="barra-filtros" method="get">
+    <label class="small text-body-secondary" for="filtro-inicio">De</label>
+    <input type="date" class="form-control form-control-sm filtro-data" id="filtro-inicio" name="inicio" value="{{ inicio.isoformat() }}">
+    <label class="small text-body-secondary" for="filtro-fim">até</label>
+    <input type="date" class="form-control form-control-sm filtro-data" id="filtro-fim" name="fim" value="{{ fim.isoformat() }}">
+    <button type="submit" class="btn btn-sm btn-outline-secondary">Aplicar</button>
+    <span class="atalhos-periodo ms-md-auto">
+      {% for rotulo, de, ate in periodos %}
+        <a class="btn btn-sm btn-link" href="{{ url_for('relatorios.resumo', inicio=de.isoformat(), fim=ate.isoformat()) }}">{{ rotulo }}</a>
+      {% endfor %}
+    </span>
+  </form>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Faturamento</div>
+      <div class="card-body">
+        <p class="small text-body-secondary">Contas das {{ faturamento.consultas }} consulta{{ "s" if faturamento.consultas != 1 }} realizada{{ "s" if faturamento.consultas != 1 }} no período.</p>
+        <dl class="totais totais-largos">
+          <dt>Consultas</dt><dd class="numero">{{ faturamento.valor_consultas|moeda }}</dd>
+          <dt>Procedimentos</dt><dd class="numero">{{ faturamento.valor_procedimentos|moeda }}</dd>
+          <dt class="total-geral">Total faturado</dt><dd class="numero total-geral">{{ faturamento.faturado|moeda }}</dd>
+          <dt>Já recebido</dt><dd class="numero">{{ faturamento.recebido|moeda }}</dd>
+          <dt>Em aberto</dt><dd class="numero">{{ faturamento.em_aberto|moeda }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Recebimentos por forma de pagamento</div>
+      <div class="card-body">
+        <p class="small text-body-secondary">{{ recebimentos.quantidade }} pagamento{{ "s" if recebimentos.quantidade != 1 }} com data no período.</p>
+        <dl class="totais totais-largos">
+          <dt>Dinheiro</dt><dd class="numero">{{ recebimentos.dinheiro|moeda }}</dd>
+          <dt>Cartão</dt><dd class="numero">{{ recebimentos.cartao|moeda }}</dd>
+          <dt>PIX</dt><dd class="numero">{{ recebimentos.pix|moeda }}</dd>
+          <dt>Convênios</dt><dd class="numero">{{ recebimentos.convenio|moeda }}</dd>
+          <dt class="total-geral">Total recebido</dt><dd class="numero total-geral">{{ recebimentos.total|moeda }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">Consultas por médico</div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Médico</th>
+          <th class="text-end">Marcadas</th>
+          <th class="text-end">Realizadas</th>
+          <th class="text-end">A realizar</th>
+          <th class="text-end">Canceladas</th>
+          <th class="text-end">Faltas</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for linha in consultas_por_medico %}
+          <tr>
+            <td>{{ linha.nome_medico }}</td>
+            <td class="numero text-end">{{ linha.total }}</td>
+            <td class="numero text-end">{{ linha.realizadas }}</td>
+            <td class="numero text-end">{{ linha.pendentes }}</td>
+            <td class="numero text-end">{{ linha.canceladas }}</td>
+            <td class="numero text-end">{{ linha.faltas }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="text-center text-body-secondary py-4">Nenhum médico cadastrado.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if consultas_por_medico %}
+        <tfoot>
+          <tr class="linha-total">
+            <td>Total</td>
+            {% for chave in ("total", "realizadas", "pendentes", "canceladas", "faltas") %}
+              <td class="numero text-end">{{ total_consultas[chave] }}</td>
+            {% endfor %}
+          </tr>
+        </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">Honorários dos médicos</div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Médico</th>
+          <th class="text-end">Consultas realizadas</th>
+          <th class="text-end">Valor das consultas</th>
+          <th class="text-end">Percentual</th>
+          <th class="text-end">Honorário</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for linha in honorarios %}
+          <tr>
+            <td>{{ linha.nome_medico }}</td>
+            <td class="numero text-end">{{ linha.consultas }}</td>
+            <td class="numero text-end">{{ linha.valor_consultas|moeda }}</td>
+            <td class="numero text-end">{{ linha.percentual_honorario|decimal_br }}%</td>
+            <td class="numero text-end">{{ linha.honorario|moeda }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="text-center text-body-secondary py-4">Nenhum médico cadastrado.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if honorarios %}
+        <tfoot>
+          <tr class="linha-total">
+            <td colspan="4">Total</td>
+            <td class="numero text-end">{{ total_honorarios|moeda }}</td>
+          </tr>
+        </tfoot>
+      {% endif %}
+    </table>
+  </div>
+  <div class="card-body pt-0">
+    <p class="form-text mb-0">O honorário é o percentual de cada médico sobre o valor das consultas; procedimentos não entram no cálculo.</p>
+  </div>
+</div>
+{% endblock %}

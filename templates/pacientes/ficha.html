@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, etiqueta_status, botao_excluir, estado_vazio %}
+
+{% block titulo %}{{ paciente.nome }}{% endblock %}
+
+{% block conteudo %}
+{% set subtitulo = ("CPF " ~ paciente.cpf if paciente.cpf else "") ~
+                   (" · " ~ (paciente.data_nasc|idade) ~ " anos" if paciente.data_nasc else "") %}
+{% call cabecalho_pagina(paciente.nome, subtitulo) %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('pacientes.lista') }}">
+    <i class="bi bi-arrow-left" aria-hidden="true"></i> Pacientes
+  </a>
+  {% if pode("agendar") %}
+    <a class="btn btn-outline-primary" href="{{ url_for('consultas.nova', id_paciente=paciente.id_paciente) }}">Nova consulta</a>
+  {% endif %}
+  {% if pode("pacientes_editar") %}
+    <a class="btn btn-primary" href="{{ url_for('pacientes.editar', id_paciente=paciente.id_paciente) }}">Editar</a>
+  {% endif %}
+{% endcall %}
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Dados pessoais</div>
+      <div class="card-body">
+        <dl class="lista-dados">
+          <dt>Nome</dt>               <dd>{{ paciente.nome }}</dd>
+          <dt>CPF</dt>                <dd class="numero">{{ paciente.cpf or "—" }}</dd>
+          <dt>RG</dt>                 <dd>{{ paciente.rg or "—" }}</dd>
+          <dt>Nascimento</dt>
+          <dd class="numero">
+            {% if paciente.data_nasc %}{{ paciente.data_nasc|data_br }} ({{ paciente.data_nasc|idade }} anos){% else %}—{% endif %}
+          </dd>
+          <dt>Sexo</dt>               <dd>{{ paciente.sexo or "Não informado" }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Contato</div>
+      <div class="card-body">
+        <dl class="lista-dados">
+          <dt>Telefones</dt>
+          <dd class="numero">
+            {% for numero in paciente.telefones %}{{ numero }}{% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}
+          </dd>
+          <dt>E-mail</dt>
+          <dd>{% if paciente.email %}<a href="mailto:{{ paciente.email }}">{{ paciente.email }}</a>{% else %}—{% endif %}</dd>
+          <dt>Endereço</dt>           <dd>{{ paciente.endereco or "—" }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">Convênios</div>
+  {% if paciente.convenios %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr><th>Convênio</th><th>Carteirinha</th><th>Tipo de plano</th><th>Validade</th></tr>
+        </thead>
+        <tbody>
+          {% for plano in paciente.convenios %}
+            <tr>
+              <td>{{ plano.nome_convenio }}</td>
+              <td class="numero">{{ plano.numero_carteirinha }}</td>
+              <td>{{ plano.tipo_plano or "—" }}</td>
+              <td class="numero">
+                {% if plano.validade %}
+                  {{ plano.validade|data_br }}
+                  {% if plano.vencido %}<span class="status status-cancelada ms-1">Vencida</span>{% endif %}
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card-body text-body-secondary">Sem convênio: atendimento particular.</div>
+  {% endif %}
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">Consultas</div>
+  {% if consultas %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr><th>Data</th><th>Médico</th><th class="d-none d-md-table-cell">Sala</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for c in consultas %}
+            <tr>
+              <td class="numero">
+                {# o atendimento abre para o administrador e para o médico da consulta #}
+                {% if c.status == "REALIZADA" and (usuario_logado.perfil == "ADMIN" or
+                      (usuario_logado.perfil == "MEDICO" and usuario_logado.id_medico == c.id_medico)) %}
+                  <a href="{{ url_for('consultas.atendimento', id_consulta=c.id_consulta) }}">{{ c.data_hora_marcado|data_hora }}</a>
+                {% else %}
+                  {{ c.data_hora_marcado|data_hora or "—" }}
+                {% endif %}
+              </td>
+              <td>{{ c.nome_medico or "—" }}</td>
+              <td class="d-none d-md-table-cell">{{ c.sala or "—" }}</td>
+              <td>{{ etiqueta_status(c.status) if c.status else "—" }}</td>
+            </tr>
+            {# prontuário: só para os perfis com acesso (seção 6 do plano) #}
+            {% if pode("prontuario") and (c.sintomas or c.diagnostico or c.prescricao) %}
+              <tr class="linha-prontuario">
+                <td colspan="4">
+                  <dl class="lista-dados mb-0">
+                    {% if c.sintomas %}<dt>Sintomas</dt><dd>{{ c.sintomas }}</dd>{% endif %}
+                    {% if c.diagnostico %}<dt>Diagnóstico</dt><dd>{{ c.diagnostico }}</dd>{% endif %}
+                    {% if c.prescricao %}<dt>Prescrição</dt><dd class="texto-preformatado">{{ c.prescricao }}</dd>{% endif %}
+                  </dl>
+                </td>
+              </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card-body">
+      {{ estado_vazio("Nenhuma consulta registrada para este paciente.") }}
+    </div>
+  {% endif %}
+</div>
+
+{% if pode("pacientes_excluir") %}
+  <div class="zona-exclusao">
+    <span class="text-body-secondary small">Só é possível excluir pacientes sem consultas registradas.</span>
+    {{ botao_excluir(url_for("pacientes.excluir", id_paciente=paciente.id_paciente),
+                     "Excluir o cadastro de " ~ paciente.nome ~ "? Telefones e convênios também serão apagados.",
+                     rotulo="Excluir paciente") }}
+  </div>
+{% endif %}
+{% endblock %}

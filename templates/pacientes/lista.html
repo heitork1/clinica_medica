@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, estado_vazio %}
+
+{% block titulo %}Pacientes{% endblock %}
+
+{% block conteudo %}
+{% call cabecalho_pagina("Pacientes") %}
+  {% if pode("pacientes_editar") %}
+    <a class="btn btn-primary" href="{{ url_for('pacientes.novo') }}">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i> Novo paciente
+    </a>
+  {% endif %}
+{% endcall %}
+
+<div class="card">
+  {# a busca vai ao servidor porque a lista é paginada #}
+  <form class="barra-filtros" method="get" role="search">
+    <input type="search" class="form-control form-control-sm" name="busca" value="{{ busca }}"
+           placeholder="Nome ou CPF" aria-label="Buscar paciente por nome ou CPF">
+    <button type="submit" class="btn btn-sm btn-outline-secondary">Buscar</button>
+    {% if busca %}<a class="btn btn-sm btn-link" href="{{ url_for('pacientes.lista') }}">Limpar</a>{% endif %}
+    <span class="text-body-secondary small ms-auto">
+      {{ total }} paciente{{ "s" if total != 1 }}{% if busca %} encontrado{{ "s" if total != 1 }}{% endif %}
+    </span>
+  </form>
+
+  {% if pacientes %}
+    <div class="table-responsive">
+      <table class="table table-hover" id="tabela-pacientes">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>CPF</th>
+            <th class="d-none d-md-table-cell">Idade</th>
+            <th class="d-none d-md-table-cell">Telefone</th>
+            <th class="d-none d-lg-table-cell">Convênio</th>
+            <th class="coluna-acoes"><span class="visually-hidden">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pacientes %}
+            <tr>
+              <td><a href="{{ url_for('pacientes.ficha', id_paciente=p.id_paciente) }}">{{ p.nome }}</a></td>
+              <td class="numero">{{ p.cpf or "—" }}</td>
+              <td class="d-none d-md-table-cell numero">
+                {% if p.data_nasc %}{{ p.data_nasc|idade }} anos{% else %}—{% endif %}
+              </td>
+              <td class="d-none d-md-table-cell numero">{{ p.telefone or "—" }}</td>
+              <td class="d-none d-lg-table-cell">{{ p.convenios or "Particular" }}</td>
+              <td class="coluna-acoes">
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('pacientes.ficha', id_paciente=p.id_paciente) }}">Ficha</a>
+                {% if pode("pacientes_editar") %}
+                  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('pacientes.editar', id_paciente=p.id_paciente) }}">Editar</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if paginas > 1 %}
+      <nav class="rodape-tabela" aria-label="Páginas da lista de pacientes">
+        <span class="text-body-secondary small">Página {{ pagina }} de {{ paginas }}</span>
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item{% if pagina <= 1 %} disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('pacientes.lista', busca=busca or None, pagina=pagina - 1) }}">Anterior</a>
+          </li>
+          <li class="page-item{% if pagina >= paginas %} disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('pacientes.lista', busca=busca or None, pagina=pagina + 1) }}">Próxima</a>
+          </li>
+        </ul>
+      </nav>
+    {% endif %}
+  {% else %}
+    <div class="card-body">
+      {% if busca %}
+        {{ estado_vazio("Nenhum paciente encontrado para \"" ~ busca ~ "\".", "Confira a grafia ou busque pelo CPF.") }}
+      {% else %}
+        {% call estado_vazio("Nenhum paciente cadastrado.") %}
+          {% if pode("pacientes_editar") %}
+            <a class="btn btn-primary" href="{{ url_for('pacientes.novo') }}">Cadastrar o primeiro paciente</a>
+          {% endif %}
+        {% endcall %}
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

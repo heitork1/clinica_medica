@@ -1,0 +1,14 @@
+{# Mensagens do flash(). Categorias usadas nas rotas: sucesso, erro, aviso, info #}
+{% set classes_aviso = {"sucesso": "success", "erro": "danger", "aviso": "warning", "info": "info"} %}
+{% with mensagens = get_flashed_messages(with_categories=true) %}
+  {% if mensagens %}
+    <div class="area-avisos">
+      {% for categoria, mensagem in mensagens %}
+        <div class="alert alert-{{ classes_aviso.get(categoria, 'info') }} alert-dismissible fade show" role="alert">
+          {{ mensagem }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}

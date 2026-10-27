@@ -1,0 +1,128 @@
+{% from "macros.html" import item_menu %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{% endblock %} | Clínica Médica</title>
+  {% include "partes/estilos.html" %}
+</head>
+<body>
+
+  {# Barra superior: só aparece no celular, para abrir o menu #}
+  <header class="barra-topo d-lg-none">
+    <a class="marca" href="{{ url_for('inicio.inicio') }}">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" width="24" height="24">
+      Clínica Médica
+    </a>
+    <button class="btn btn-sm btn-menu" type="button" data-bs-toggle="offcanvas"
+            data-bs-target="#menu-lateral" aria-controls="menu-lateral">
+      <i class="bi bi-list" aria-hidden="true"></i> Menu
+    </button>
+  </header>
+
+  {# Menu lateral: fixo a partir de telas médias (lg), gaveta (offcanvas) no celular #}
+  <aside class="menu-lateral">
+    <div class="offcanvas-lg offcanvas-start" tabindex="-1" id="menu-lateral" aria-labelledby="menu-lateral-titulo">
+      <div class="offcanvas-header">
+        <span class="offcanvas-title" id="menu-lateral-titulo">Menu</span>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
+                data-bs-target="#menu-lateral" aria-label="Fechar"></button>
+      </div>
+
+      <div class="offcanvas-body">
+        <a class="marca d-none d-lg-flex" href="{{ url_for('inicio.inicio') }}">
+          <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" width="26" height="26">
+          Clínica Médica
+        </a>
+
+        {# cada item só aparece para os perfis que acessam a área (rotas/acesso.py) #}
+        <nav class="menu-grupos" aria-label="Menu principal">
+          {% if usuario_logado %}
+            <div class="menu-grupo">
+              <span class="menu-grupo-titulo">Atendimento</span>
+              {{ item_menu("Início", "house", url_for("inicio.inicio"), menu_ativo == "inicio") }}
+              {{ item_menu("Agenda", "calendar3", url_for("consultas.agenda"), menu_ativo == "agenda") }}
+              {{ item_menu("Pacientes", "people", url_for("pacientes.lista"), menu_ativo == "pacientes") }}
+            </div>
+          {% endif %}
+
+          {% if pode("medicos") or pode("cadastros") %}
+            <div class="menu-grupo">
+              <span class="menu-grupo-titulo">Cadastros</span>
+              {% if pode("medicos") %}
+                {{ item_menu("Médicos", "person-badge", url_for("medicos.lista"), menu_ativo == "medicos") }}
+              {% endif %}
+              {% if pode("cadastros") %}
+                {{ item_menu("Convênios", "card-text", url_for("cadastros.lista", tipo="convenios"), menu_ativo == "convenios") }}
+                {{ item_menu("Especialidades", "bookmark", url_for("cadastros.lista", tipo="especialidades"), menu_ativo == "especialidades") }}
+                {{ item_menu("Procedimentos", "clipboard2-pulse", url_for("cadastros.lista", tipo="procedimentos"), menu_ativo == "procedimentos") }}
+                {{ item_menu("Salas", "door-open", url_for("cadastros.lista", tipo="salas"), menu_ativo == "salas") }}
+              {% endif %}
+            </div>
+          {% endif %}
+
+          {% if pode("usuarios") or pode("relatorios") %}
+            <div class="menu-grupo">
+              <span class="menu-grupo-titulo">Administração</span>
+              {% if pode("usuarios") %}
+                {{ item_menu("Usuários", "person-gear", url_for("usuarios.lista"), menu_ativo == "usuarios") }}
+              {% endif %}
+              {% if pode("relatorios") %}
+                {{ item_menu("Relatórios", "bar-chart", url_for("relatorios.resumo"), menu_ativo == "relatorios") }}
+              {% endif %}
+            </div>
+          {% endif %}
+
+          {% if config.DEBUG %}
+            <div class="menu-grupo">
+              <span class="menu-grupo-titulo">Desenvolvimento</span>
+              {{ item_menu("Guia visual", "palette", url_for("inicio.estilo"), menu_ativo == "estilo") }}
+            </div>
+          {% endif %}
+        </nav>
+
+        <div class="menu-rodape">
+          {% if usuario_logado %}
+            <div class="usuario-logado">
+              <strong>{{ usuario_logado.nome }}</strong>
+              <span>{{ PERFIS.get(usuario_logado.perfil, usuario_logado.perfil) }}</span>
+            </div>
+            {{ item_menu("Alterar senha", "key", url_for("autenticacao.minha_senha"), menu_ativo == "minha-senha") }}
+            {{ item_menu("Sair", "box-arrow-right", url_for("autenticacao.logout")) }}
+          {% else %}
+            {{ item_menu("Entrar", "box-arrow-in-right", url_for("autenticacao.login")) }}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="conteudo">
+    <div class="conteudo-interno">
+      {% include "partes/avisos.html" %}
+      {% block conteudo %}{% endblock %}
+    </div>
+  </main>
+
+  {# Janela de confirmação usada por comum.js nos formulários com data-confirmar #}
+  <div class="modal fade" id="modal-confirmacao" tabindex="-1" aria-labelledby="modal-confirmacao-titulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-6" id="modal-confirmacao-titulo">Confirmar</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body" data-confirmacao-mensagem></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
+          <button type="button" class="btn btn-danger" data-confirmacao-ok>Excluir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include "partes/scripts.html" %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

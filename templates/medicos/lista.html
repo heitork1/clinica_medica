@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, botao_excluir, estado_vazio %}
+
+{% block titulo %}Médicos{% endblock %}
+
+{% block conteudo %}
+{% call cabecalho_pagina("Médicos") %}
+  {% if pode("medicos_editar") %}
+    <a class="btn btn-primary" href="{{ url_for('medicos.novo') }}">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i> Novo médico
+    </a>
+  {% endif %}
+{% endcall %}
+
+<div class="card">
+  <form class="barra-filtros" method="get">
+    <input type="search" class="form-control form-control-sm" placeholder="Filtrar por nome ou CRM"
+           aria-label="Filtrar médicos" data-filtro-tabela="#tabela-medicos">
+    <select class="form-select form-select-sm filtro-select" name="id_especialidade" aria-label="Especialidade">
+      <option value="">Todas as especialidades</option>
+      {% for e in especialidades %}
+        <option value="{{ e.id_especialidade }}" {% if e.id_especialidade == id_especialidade %}selected{% endif %}>{{ e.nome_especialidade }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-sm btn-outline-secondary">Aplicar</button>
+    <span class="text-body-secondary small ms-auto">{{ medicos|length }} médico{{ "s" if medicos|length != 1 }}</span>
+  </form>
+
+  {% if medicos %}
+    <div class="table-responsive">
+      <table class="table table-hover" id="tabela-medicos">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>CRM</th>
+            <th class="d-none d-md-table-cell">Especialidades</th>
+            <th class="d-none d-lg-table-cell">Atende</th>
+            <th class="d-none d-lg-table-cell">Telefone</th>
+            <th class="d-none d-md-table-cell text-end">Honorário</th>
+            {% if pode("medicos_editar") %}<th class="coluna-acoes"><span class="visually-hidden">Ações</span></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in medicos %}
+            <tr>
+              <td>{{ m.nome_medico }}</td>
+              <td class="numero">{{ m.crm }}</td>
+              <td class="d-none d-md-table-cell">{{ m.especialidades or "—" }}</td>
+              <td class="d-none d-lg-table-cell">{{ m.dias_abreviados or "—" }}</td>
+              <td class="d-none d-lg-table-cell numero">{{ m.telefone or "—" }}</td>
+              <td class="d-none d-md-table-cell numero text-end">{{ m.percentual_honorario|decimal_br }}%</td>
+              {% if pode("medicos_editar") %}
+                <td class="coluna-acoes">
+                  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('medicos.editar', id_medico=m.id_medico) }}">Editar</a>
+                  {{ botao_excluir(url_for("medicos.excluir", id_medico=m.id_medico),
+                                   "Excluir o cadastro de " ~ m.nome_medico ~ "? Telefones, especialidades e horários também serão apagados.") }}
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+          <tr data-sem-resultado hidden>
+            <td colspan="7" class="text-center text-body-secondary py-4">Nenhum médico encontrado com esse filtro.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card-body">
+      {% if id_especialidade %}
+        {{ estado_vazio("Nenhum médico com essa especialidade.") }}
+      {% else %}
+        {% call estado_vazio("Nenhum médico cadastrado.") %}
+          {% if pode("medicos_editar") %}
+            <a class="btn btn-primary" href="{{ url_for('medicos.novo') }}">Cadastrar o primeiro médico</a>
+          {% endif %}
+        {% endcall %}
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

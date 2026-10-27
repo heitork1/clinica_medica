@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, campo, selecao %}
+
+{# Linhas dinâmicas: a mesma macro desenha as linhas existentes e o <template> das novas #}
+{% macro linha_telefone(valor="") %}
+<div class="linha-dinamica">
+  <div class="campos">
+    <input class="form-control" type="text" name="telefone" value="{{ valor }}" aria-label="Telefone"
+           data-mascara="telefone" inputmode="numeric" maxlength="15" placeholder="(00) 00000-0000">
+    <div class="invalid-feedback">Telefone incompleto.</div>
+  </div>
+  <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover telefone">
+    <i class="bi bi-x-lg" aria-hidden="true"></i>
+  </button>
+</div>
+{% endmacro %}
+
+{% macro linha_convenio(convenios, plano={}) %}
+<div class="linha-dinamica">
+  <div class="campos row g-2">
+    <div class="col-md-4">
+      <span class="rotulo-linha d-md-none">Convênio</span>
+      <select class="form-select" name="id_convenio" aria-label="Convênio">
+        <option value="">Selecione...</option>
+        {% for c in convenios %}
+          <option value="{{ c.id_convenio }}" {% if c.id_convenio|string == plano.get("id_convenio")|string %}selected{% endif %}>{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <span class="rotulo-linha d-md-none">Nº da carteirinha</span>
+      <input class="form-control" type="text" name="numero_carteirinha" value="{{ plano.get('numero_carteirinha') or '' }}"
+             aria-label="Número da carteirinha" maxlength="50">
+    </div>
+    <div class="col-md-2">
+      <span class="rotulo-linha d-md-none">Validade</span>
+      <input class="form-control" type="date" name="validade" value="{{ plano.get('validade') or '' }}" aria-label="Validade">
+    </div>
+    <div class="col-md-3">
+      <span class="rotulo-linha d-md-none">Tipo de plano</span>
+      <input class="form-control" type="text" name="tipo_plano" value="{{ plano.get('tipo_plano') or '' }}"
+             aria-label="Tipo de plano" maxlength="50" placeholder="Ex.: Enfermaria">
+    </div>
+  </div>
+  <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover convênio">
+    <i class="bi bi-x-lg" aria-hidden="true"></i>
+  </button>
+</div>
+{% endmacro %}
+
+{% set titulo = "Editar paciente" if paciente else "Novo paciente" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+
+{% block conteudo %}
+{% call cabecalho_pagina(titulo, paciente.nome if paciente else None) %}
+  <a class="btn btn-outline-secondary"
+     href="{{ url_for('pacientes.ficha', id_paciente=paciente.id_paciente) if paciente else url_for('pacientes.lista') }}">
+    <i class="bi bi-arrow-left" aria-hidden="true"></i> Voltar
+  </a>
+{% endcall %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" class="needs-validation" novalidate>
+
+      <section class="secao-formulario">
+        <h2>Dados pessoais</h2>
+        <div class="row g-3">
+          {{ campo("nome", "Nome completo", valor=dados.get("nome"), obrigatorio=True, coluna="col-md-8",
+                   erro=erros.nome, mensagem_invalido="Informe o nome completo.", atributos={"maxlength": 100}) }}
+          {{ campo("data_nasc", "Data de nascimento", valor=dados.get("data_nasc"), tipo="date", coluna="col-md-4",
+                   erro=erros.data_nasc, atributos={"max": hoje}) }}
+          {{ campo("cpf", "CPF", valor=dados.get("cpf"), obrigatorio=True, coluna="col-md-4", erro=erros.cpf,
+                   mensagem_invalido="Informe um CPF válido.",
+                   atributos={"data-mascara": "cpf", "inputmode": "numeric", "maxlength": 14, "placeholder": "000.000.000-00"}) }}
+          {{ campo("rg", "RG", valor=dados.get("rg"), coluna="col-md-4", erro=erros.rg, atributos={"maxlength": 20}) }}
+          {{ selecao("sexo", "Sexo", opcoes_sexo, selecionado=dados.get("sexo"), texto_vazio="Não informado",
+                     coluna="col-md-4", erro=erros.sexo) }}
+        </div>
+      </section>
+
+      <section class="secao-formulario">
+        <h2>Contato</h2>
+        <div class="row g-3">
+          {{ campo("email", "E-mail", valor=dados.get("email"), tipo="email", coluna="col-md-6", erro=erros.email,
+                   mensagem_invalido="Informe um e-mail válido.", atributos={"maxlength": 100}) }}
+          {{ campo("endereco", "Endereço", valor=dados.get("endereco"), coluna="col-md-6", erro=erros.endereco,
+                   atributos={"maxlength": 200, "placeholder": "Rua, número, bairro, cidade"}) }}
+          <div class="col-md-6">
+            <span class="form-label d-block">Telefones</span>
+            <div data-linhas data-linhas-minimo="1">
+              <div data-linhas-lista>
+                {% for numero in dados.get("telefones") or [""] %}
+                  {{ linha_telefone(numero) }}
+                {% endfor %}
+              </div>
+              <template data-linhas-modelo>{{ linha_telefone() }}</template>
+              <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-adicionar-linha>
+                <i class="bi bi-plus-lg" aria-hidden="true"></i> Adicionar telefone
+              </button>
+            </div>
+            {% if erros.telefones %}<div class="invalid-feedback d-block">{{ erros.telefones }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="secao-formulario">
+        <h2>Convênios</h2>
+        {% if convenios %}
+          <div data-linhas>
+            <div class="linha-dinamica cabecalho-linhas d-none d-md-flex" aria-hidden="true">
+              <div class="campos row g-2">
+                <div class="col-md-4">Convênio</div>
+                <div class="col-md-3">Nº da carteirinha</div>
+                <div class="col-md-2">Validade</div>
+                <div class="col-md-3">Tipo de plano</div>
+              </div>
+              <span class="espaco-botao"></span>
+            </div>
+            <div data-linhas-lista>
+              {% for plano in dados.get("convenios") or [] %}
+                {{ linha_convenio(convenios, plano) }}
+              {% endfor %}
+            </div>
+            <template data-linhas-modelo>{{ linha_convenio(convenios) }}</template>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-adicionar-linha>
+              <i class="bi bi-plus-lg" aria-hidden="true"></i> Adicionar convênio
+            </button>
+          </div>
+          <p class="form-text mb-0">Sem convênio, o paciente é atendido como particular.</p>
+          {% if erros.convenios %}<div class="invalid-feedback d-block">{{ erros.convenios }}</div>{% endif %}
+        {% else %}
+          <p class="text-body-secondary mb-0">
+            Nenhum convênio cadastrado na clínica.
+            {% if pode("cadastros") %}<a href="{{ url_for('cadastros.lista', tipo='convenios') }}">Cadastrar convênios</a>{% endif %}
+          </p>
+        {% endif %}
+      </section>
+
+      <div class="rodape-formulario">
+        <a class="btn btn-outline-secondary"
+           href="{{ url_for('pacientes.ficha', id_paciente=paciente.id_paciente) if paciente else url_for('pacientes.lista') }}">Cancelar</a>
+        <button type="submit" class="btn btn-primary" data-enviando="Salvando...">
+          {{ "Salvar alterações" if paciente else "Cadastrar paciente" }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

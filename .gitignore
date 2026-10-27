@@ -1,0 +1,16 @@
+# ambiente virtual
+.venv/
+venv/
+
+# configuração local (senhas)
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# editores e sistema
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}{% endblock %} | Clínica Médica</title>
+  {% include "partes/estilos.html" %}
+</head>
+<body class="pagina-externa">
+  <main class="pagina-externa-conteudo">
+    {% include "partes/avisos.html" %}
+    {% block conteudo %}{% endblock %}
+  </main>
+
+  {% include "partes/scripts.html" %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

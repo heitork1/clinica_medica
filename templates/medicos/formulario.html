@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, campo %}
+
+{% macro linha_telefone(valor="") %}
+<div class="linha-dinamica">
+  <div class="campos">
+    <input class="form-control" type="text" name="telefone" value="{{ valor }}" aria-label="Telefone"
+           data-mascara="telefone" inputmode="numeric" maxlength="15" placeholder="(00) 00000-0000">
+    <div class="invalid-feedback">Telefone incompleto.</div>
+  </div>
+  <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover telefone">
+    <i class="bi bi-x-lg" aria-hidden="true"></i>
+  </button>
+</div>
+{% endmacro %}
+
+{# uma faixa de atendimento: dia da semana, início e fim #}
+{% macro linha_horario(dias_semana, horario={}) %}
+<div class="linha-dinamica">
+  <div class="campos row g-2">
+    <div class="col-sm-6">
+      <span class="rotulo-linha d-sm-none">Dia</span>
+      <select class="form-select" name="dia_semana" aria-label="Dia da semana">
+        <option value="">Dia da semana...</option>
+        {% for valor, nomes in dias_semana.items() %}
+          <option value="{{ valor }}" {% if valor == horario.get("dia_semana") %}selected{% endif %}>{{ nomes[0] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-sm-3">
+      <span class="rotulo-linha d-sm-none">Início</span>
+      <input class="form-control" type="time" name="hora_inicio" value="{{ horario.get('hora_inicio')|hora }}" aria-label="Início">
+    </div>
+    <div class="col-6 col-sm-3">
+      <span class="rotulo-linha d-sm-none">Fim</span>
+      <input class="form-control" type="time" name="hora_fim" value="{{ horario.get('hora_fim')|hora }}" aria-label="Fim">
+    </div>
+  </div>
+  <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover faixa de horário">
+    <i class="bi bi-x-lg" aria-hidden="true"></i>
+  </button>
+</div>
+{% endmacro %}
+
+{% set titulo = "Editar médico" if medico else "Novo médico" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+
+{% block conteudo %}
+{% call cabecalho_pagina(titulo, medico.nome_medico if medico else None) %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('medicos.lista') }}">
+    <i class="bi bi-arrow-left" aria-hidden="true"></i> Voltar
+  </a>
+{% endcall %}
+
+{# percentual vindo do banco (Decimal) aparece como 40 ou 37,5; vindo do formulário, como foi digitado #}
+{% set percentual = dados.get("percentual_honorario") %}
+{% if percentual is number %}{% set percentual = percentual|decimal_br %}{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" class="needs-validation" novalidate>
+
+      <section class="secao-formulario">
+        <h2>Dados profissionais</h2>
+        <div class="row g-3">
+          {{ campo("nome_medico", "Nome completo", valor=dados.get("nome_medico"), obrigatorio=True, coluna="col-md-6",
+                   erro=erros.nome_medico, mensagem_invalido="Informe o nome completo.", atributos={"maxlength": 100}) }}
+          {{ campo("crm", "CRM", valor=dados.get("crm"), obrigatorio=True, coluna="col-6 col-md-3", erro=erros.crm,
+                   mensagem_invalido="Informe o CRM.", atributos={"maxlength": 30, "placeholder": "12345/SC"}) }}
+          {{ campo("percentual_honorario", "Honorário (%)", valor=percentual, obrigatorio=True, coluna="col-6 col-md-3",
+                   erro=erros.percentual_honorario, ajuda="Parte do valor da consulta.",
+                   mensagem_invalido="Informe o percentual.",
+                   atributos={"inputmode": "decimal", "maxlength": 6, "placeholder": "40"}) }}
+          <div class="col-md-6">
+            <span class="form-label d-block">Telefones</span>
+            <div data-linhas data-linhas-minimo="1">
+              <div data-linhas-lista>
+                {% for numero in dados.get("telefones") or [""] %}
+                  {{ linha_telefone(numero) }}
+                {% endfor %}
+              </div>
+              <template data-linhas-modelo>{{ linha_telefone() }}</template>
+              <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-adicionar-linha>
+                <i class="bi bi-plus-lg" aria-hidden="true"></i> Adicionar telefone
+              </button>
+            </div>
+            {% if erros.telefones %}<div class="invalid-feedback d-block">{{ erros.telefones }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="secao-formulario">
+        <h2>Especialidades <span class="obrigatorio" aria-hidden="true">*</span></h2>
+        {% if especialidades %}
+          <div class="grade-opcoes">
+            {% for e in especialidades %}
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="especialidades" value="{{ e.id_especialidade }}"
+                       id="especialidade-{{ e.id_especialidade }}"
+                       {% if e.id_especialidade in dados.get("especialidades", [])|map("int") %}checked{% endif %}>
+                <label class="form-check-label" for="especialidade-{{ e.id_especialidade }}">{{ e.nome_especialidade }}</label>
+              </div>
+            {% endfor %}
+          </div>
+          {% if erros.especialidades %}<div class="invalid-feedback d-block">{{ erros.especialidades }}</div>{% endif %}
+        {% else %}
+          <div class="alert alert-warning mb-0">
+            Nenhuma especialidade cadastrada.
+            <a href="{{ url_for('cadastros.lista', tipo='especialidades') }}">Cadastre as especialidades</a> antes do médico.
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="secao-formulario">
+        <h2>Horários de atendimento</h2>
+        <p class="text-body-secondary small">
+          Uma linha por faixa. Para atender de manhã e à tarde no mesmo dia, use duas linhas (ex.: 08:00–12:00 e 14:00–18:00).
+        </p>
+        <div data-linhas class="lista-horarios">
+          <div class="linha-dinamica cabecalho-linhas d-none d-sm-flex" aria-hidden="true">
+            <div class="campos row g-2">
+              <div class="col-sm-6">Dia</div>
+              <div class="col-sm-3">Início</div>
+              <div class="col-sm-3">Fim</div>
+            </div>
+            <span class="espaco-botao"></span>
+          </div>
+          <div data-linhas-lista>
+            {% for horario in dados.get("horarios") or [] %}
+              {{ linha_horario(dias_semana, horario) }}
+            {% endfor %}
+          </div>
+          <template data-linhas-modelo>{{ linha_horario(dias_semana) }}</template>
+          <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-adicionar-linha>
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> Adicionar faixa de horário
+          </button>
+        </div>
+        {% if erros.horarios %}<div class="invalid-feedback d-block">{{ erros.horarios }}</div>{% endif %}
+      </section>
+
+      <div class="rodape-formulario">
+        <a class="btn btn-outline-secondary" href="{{ url_for('medicos.lista') }}">Cancelar</a>
+        <button type="submit" class="btn btn-primary" data-enviando="Salvando...">
+          {{ "Salvar alterações" if medico else "Cadastrar médico" }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

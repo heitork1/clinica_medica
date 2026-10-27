@@ -1,0 +1,925 @@
+/* ==========================================================================
+   Clínica Médica — ajustes sobre o Bootstrap 5.3
+   1. Variáveis   2. Base   3. Layout (menu e conteúdo)   4. Componentes
+   5. Páginas específicas
+   ========================================================================== */
+
+
+/* 1. Variáveis ------------------------------------------------------------ */
+
+:root {
+  --fundo: #f4f3ef;
+  --superficie: #ffffff;
+  --borda: #dcd9d0;
+  --borda-campo: #cbc7bc;
+  --texto: #22262a;
+  --texto-suave: #6b6f73;
+  --principal: #1d5c57;
+  --principal-escuro: #15443f;
+  --principal-claro: #e3eeec;
+  --perigo: #a23b2c;
+  --perigo-escuro: #86301f;
+  --largura-menu: 232px;
+
+  /* variáveis do próprio Bootstrap */
+  --bs-body-font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bs-body-font-size: 0.9375rem;
+  --bs-body-color: var(--texto);
+  --bs-body-bg: var(--superficie);
+  --bs-secondary-color: var(--texto-suave);
+  --bs-border-color: var(--borda);
+  --bs-border-radius: 0.25rem;
+  --bs-border-radius-sm: 0.1875rem;
+  --bs-border-radius-lg: 0.3125rem;
+  --bs-primary: var(--principal);
+  --bs-primary-rgb: 29, 92, 87;
+  --bs-danger: var(--perigo);
+  --bs-danger-rgb: 162, 59, 44;
+  --bs-link-color: var(--principal);
+  --bs-link-color-rgb: 29, 92, 87;
+  --bs-link-hover-color: var(--principal-escuro);
+  --bs-link-hover-color-rgb: 21, 68, 63;
+  --bs-form-invalid-color: var(--perigo);
+  --bs-form-invalid-border-color: var(--perigo);
+}
+
+
+/* 2. Base ----------------------------------------------------------------- */
+
+body {
+  background-color: var(--fundo);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+}
+
+/* algarismos de largura fixa, para alinhar valores, horários e CPF em colunas.
+   Para alinhar à direita (valores em dinheiro), somar a classe text-end. */
+.numero {
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* 3. Layout --------------------------------------------------------------- */
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.marca:hover {
+  color: #fff;
+}
+
+/* barra do celular */
+.barra-topo {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 1rem;
+  background-color: var(--principal);
+}
+
+.btn-menu {
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.btn-menu:hover,
+.btn-menu:focus-visible {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* menu lateral */
+.menu-lateral .offcanvas-lg {
+  --bs-offcanvas-width: 260px;
+  --bs-offcanvas-bg: var(--principal);
+  --bs-offcanvas-color: #fff;
+}
+
+.menu-lateral .offcanvas-body {
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 0.875rem 1rem;
+}
+
+.menu-lateral .marca {
+  padding: 0 0.5rem 1.5rem;
+  font-size: 1.0625rem;
+}
+
+.menu-grupos {
+  flex-grow: 1;
+}
+
+.menu-grupo + .menu-grupo {
+  margin-top: 1.25rem;
+}
+
+.menu-grupo-titulo {
+  display: block;
+  padding: 0 0.5rem 0.375rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.item-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.4375rem 0.5rem;
+  border-radius: var(--bs-border-radius);
+  color: rgba(255, 255, 255, 0.86);
+  text-decoration: none;
+}
+
+.item-menu .bi {
+  font-size: 1rem;
+  opacity: 0.75;
+}
+
+.item-menu:hover {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.item-menu.ativo {
+  color: #fff;
+  font-weight: 500;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.item-menu.ativo .bi {
+  opacity: 1;
+}
+
+.menu-rodape {
+  margin-top: 1rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 0.875rem;
+}
+
+.usuario-logado {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0.5rem 0.5rem;
+}
+
+.usuario-logado span {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8125rem;
+}
+
+/* área de conteúdo */
+.conteudo {
+  padding: 1.5rem 1rem 3rem;
+}
+
+.conteudo-interno {
+  max-width: 1200px;
+}
+
+@media (min-width: 768px) {
+  .conteudo {
+    padding: 2rem 2.25rem 3rem;
+  }
+}
+
+/* a partir de lg o menu fica fixo na lateral e o conteúdo abre espaço para ele */
+@media (min-width: 992px) {
+  .menu-lateral {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--largura-menu);
+    overflow-y: auto;
+    background-color: var(--principal);
+    color: #fff;
+  }
+
+  .menu-lateral .offcanvas-lg {
+    height: 100%;
+  }
+
+  /* o Bootstrap zera o padding do offcanvas-body nesse tamanho */
+  .menu-lateral .offcanvas-body {
+    flex-grow: 1;
+    height: 100%;
+    padding: 1.5rem 0.875rem 1rem;
+  }
+
+  .conteudo {
+    margin-left: var(--largura-menu);
+  }
+}
+
+
+/* 4. Componentes ---------------------------------------------------------- */
+
+/* cabeçalho de página: título à esquerda, ações à direita */
+.cabecalho-pagina {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.cabecalho-pagina h1 {
+  margin: 0;
+  font-size: 1.375rem;
+}
+
+.cabecalho-pagina .subtitulo {
+  margin: 0.25rem 0 0;
+  color: var(--texto-suave);
+}
+
+.cabecalho-pagina .acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* avisos (flash) */
+.area-avisos .alert {
+  margin-bottom: 1rem;
+}
+
+.alert {
+  --bs-alert-padding-y: 0.75rem;
+}
+
+.alert-success {
+  --bs-alert-color: #2f5a2f;
+  --bs-alert-bg: #e9f1e5;
+  --bs-alert-border-color: #c9dcc1;
+}
+
+.alert-danger {
+  --bs-alert-color: #7d2e22;
+  --bs-alert-bg: #f7e9e6;
+  --bs-alert-border-color: #e6c5be;
+}
+
+.alert-warning {
+  --bs-alert-color: #6b4a06;
+  --bs-alert-bg: #f8f0dc;
+  --bs-alert-border-color: #e8d6ab;
+}
+
+.alert-info {
+  --bs-alert-color: #2c4a55;
+  --bs-alert-bg: #e8eff1;
+  --bs-alert-border-color: #c9d7dc;
+}
+
+/* botões */
+.btn {
+  --bs-btn-font-weight: 500;
+  --bs-btn-padding-x: 0.875rem;
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--principal);
+  --bs-btn-border-color: var(--principal);
+  --bs-btn-hover-bg: var(--principal-escuro);
+  --bs-btn-hover-border-color: var(--principal-escuro);
+  --bs-btn-active-bg: var(--principal-escuro);
+  --bs-btn-active-border-color: var(--principal-escuro);
+  --bs-btn-disabled-bg: var(--principal);
+  --bs-btn-disabled-border-color: var(--principal);
+  --bs-btn-focus-shadow-rgb: 29, 92, 87;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--principal);
+  --bs-btn-border-color: var(--principal);
+  --bs-btn-hover-bg: var(--principal);
+  --bs-btn-hover-border-color: var(--principal);
+  --bs-btn-active-bg: var(--principal-escuro);
+  --bs-btn-active-border-color: var(--principal-escuro);
+  --bs-btn-focus-shadow-rgb: 29, 92, 87;
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--texto);
+  --bs-btn-bg: var(--superficie);
+  --bs-btn-border-color: var(--borda-campo);
+  --bs-btn-hover-color: var(--texto);
+  --bs-btn-hover-bg: #ecebe6;
+  --bs-btn-hover-border-color: #b9b5aa;
+  --bs-btn-active-color: var(--texto);
+  --bs-btn-active-bg: #e4e2db;
+  --bs-btn-active-border-color: #b9b5aa;
+  --bs-btn-disabled-color: var(--texto-suave);
+  --bs-btn-focus-shadow-rgb: 107, 111, 115;
+}
+
+.btn-danger {
+  --bs-btn-bg: var(--perigo);
+  --bs-btn-border-color: var(--perigo);
+  --bs-btn-hover-bg: var(--perigo-escuro);
+  --bs-btn-hover-border-color: var(--perigo-escuro);
+  --bs-btn-active-bg: var(--perigo-escuro);
+  --bs-btn-active-border-color: var(--perigo-escuro);
+  --bs-btn-disabled-bg: var(--perigo);
+  --bs-btn-disabled-border-color: var(--perigo);
+  --bs-btn-focus-shadow-rgb: 162, 59, 44;
+}
+
+.btn-outline-danger {
+  --bs-btn-color: var(--perigo);
+  --bs-btn-border-color: #d8b3ab;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--perigo);
+  --bs-btn-hover-border-color: var(--perigo);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--perigo-escuro);
+  --bs-btn-active-border-color: var(--perigo-escuro);
+  --bs-btn-focus-shadow-rgb: 162, 59, 44;
+}
+
+/* formulários */
+.form-label {
+  margin-bottom: 0.3rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.obrigatorio {
+  color: var(--perigo);
+}
+
+.form-control,
+.form-select {
+  border-color: var(--borda-campo);
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: #6f9f9a;
+  box-shadow: 0 0 0 0.2rem rgba(29, 92, 87, 0.18);
+}
+
+.form-check-input:checked {
+  background-color: var(--principal);
+  border-color: var(--principal);
+}
+
+/* campo com erro: só a borda e a mensagem, sem o ícone do Bootstrap */
+.form-control.is-invalid,
+.was-validated .form-control:invalid {
+  background-image: none;
+  padding-right: 0.75rem;
+}
+
+.form-select.is-invalid:not([multiple]):not([size]),
+.was-validated .form-select:invalid:not([multiple]):not([size]) {
+  --bs-form-select-bg-icon: none;
+  padding-right: 2.25rem;
+}
+
+/* quando a mensagem de erro aparece, a ajuda do campo some para não repetir */
+.form-control.is-invalid ~ .form-text,
+.was-validated .form-control:invalid ~ .form-text {
+  display: none;
+}
+
+/* só os campos com erro ficam destacados; os válidos continuam neutros */
+.was-validated .form-control:valid {
+  border-color: var(--borda-campo);
+  background-image: none;
+  padding-right: 0.75rem;
+}
+
+.was-validated .form-select:valid {
+  border-color: var(--borda-campo);
+  background-image: var(--bs-form-select-bg-img);
+  padding-right: 2.25rem;
+}
+
+.was-validated .form-check-input:valid ~ .form-check-label {
+  color: inherit;
+}
+
+.was-validated .form-check-input:valid {
+  border-color: var(--borda-campo);
+}
+
+.was-validated .form-check-input:valid:checked {
+  background-color: var(--principal);
+  border-color: var(--principal);
+}
+
+.secao-formulario + .secao-formulario {
+  margin-top: 1.75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--borda);
+}
+
+.secao-formulario > h2 {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+
+.rodape-formulario {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borda);
+}
+
+/* linhas adicionadas pelo usuário (telefones, convênios, procedimentos) */
+.linha-dinamica {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.linha-dinamica + .linha-dinamica {
+  margin-top: 0.5rem;
+}
+
+.linha-dinamica > .campos {
+  flex-grow: 1;
+}
+
+/* linhas com vários campos (convênio, horário): no celular cada campo leva um rótulo */
+.linha-dinamica > .campos.row {
+  margin-top: 0;
+}
+
+.linha-dinamica [data-remover-linha],
+.linha-dinamica .espaco-botao {
+  flex-shrink: 0;
+  width: 2.75rem;
+}
+
+.cabecalho-linhas {
+  margin-bottom: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--texto-suave);
+}
+
+.rotulo-linha {
+  display: block;
+  margin-bottom: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--texto-suave);
+}
+
+/* no celular, linhas de vários campos ficam separadas por uma divisória */
+@media (max-width: 767.98px) {
+  .linha-dinamica:has(.campos.row) + .linha-dinamica {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--borda);
+  }
+}
+
+/* caixas de seleção em colunas (especialidades do médico) */
+.grade-opcoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.375rem 1rem;
+}
+
+/* painéis (cards) */
+.card {
+  --bs-card-border-color: var(--borda);
+  --bs-card-cap-bg: #faf9f6;
+  --bs-card-spacer-x: 1.25rem;
+  --bs-card-spacer-y: 1.25rem;
+}
+
+.card-header {
+  font-weight: 600;
+}
+
+/* tabelas */
+.table {
+  --bs-table-border-color: #e7e4dc;
+  --bs-table-hover-bg: #f7f6f2;
+  margin-bottom: 0;
+}
+
+.table > :not(caption) > * > * {
+  padding: 0.625rem 0.875rem;
+  vertical-align: middle;
+}
+
+.table > thead th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  background-color: #faf9f6;
+  border-bottom-color: var(--borda);
+}
+
+/* tabela encostada nas bordas de um card: a última linha não precisa de borda */
+.card > .table-responsive > .table > tbody > tr:last-child > *,
+.card > .table > tbody > tr:last-child > * {
+  border-bottom: 0;
+}
+
+/* sem isso, elementos com position: absolute dentro da tabela (ex.: o texto
+   .visually-hidden do cabeçalho "Ações") escapam da rolagem da tabela e
+   esticam a página inteira no celular */
+.table-responsive {
+  position: relative;
+}
+
+td.numero {
+  white-space: nowrap;
+}
+
+.coluna-acoes {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* no celular: células mais justas e botões de ação um embaixo do outro */
+@media (max-width: 575.98px) {
+  .table > :not(caption) > * > * {
+    padding: 0.5rem 0.625rem;
+  }
+
+  .coluna-acoes .btn,
+  .coluna-acoes form {
+    display: block;
+    width: 100%;
+  }
+
+  .coluna-acoes .btn + form,
+  .coluna-acoes form + form,
+  .coluna-acoes .btn + .btn {
+    margin-top: 0.25rem;
+  }
+}
+
+.barra-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--borda);
+}
+
+.barra-filtros .form-control {
+  max-width: 320px;
+}
+
+.barra-filtros .filtro-select {
+  width: auto;
+  max-width: 260px;
+}
+
+.barra-filtros .filtro-data {
+  width: auto;
+}
+
+/* contagem de consultas por status, acima da tabela da agenda */
+.resumo-agenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--borda);
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+}
+
+.resumo-agenda strong {
+  color: var(--texto);
+  font-weight: 500;
+}
+
+/* dados da consulta no topo do atendimento */
+.resumo-consulta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem 1.5rem;
+  margin: 0;
+}
+
+.resumo-consulta dt {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--texto-suave);
+}
+
+.resumo-consulta dd {
+  margin: 0;
+}
+
+/* totais da conta no atendimento */
+.totais {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.375rem 1.5rem;
+  max-width: 340px;
+  margin: 0 0 0 auto;
+}
+
+.totais dt {
+  font-weight: 400;
+  color: var(--texto-suave);
+}
+
+.totais dd {
+  margin: 0;
+  text-align: right;
+}
+
+.totais .total-geral {
+  padding-top: 0.375rem;
+  border-top: 1px solid var(--borda);
+  font-weight: 600;
+  color: var(--texto);
+}
+
+@media (max-width: 767.98px) {
+  .totais {
+    margin: 0;
+    max-width: none;
+  }
+}
+
+/* na conta, os totais ocupam o painel inteiro */
+.totais-largos {
+  max-width: none;
+  margin: 0;
+}
+
+.linha-total > td {
+  font-weight: 600;
+  border-bottom: 0;
+}
+
+.resumo-pagamento {
+  font-size: 0.875rem;
+  color: var(--texto-suave);
+}
+
+/* paginação embaixo da tabela */
+.rodape-tabela {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--borda);
+}
+
+.pagination {
+  --bs-pagination-color: var(--principal);
+  --bs-pagination-hover-color: var(--principal-escuro);
+  --bs-pagination-focus-color: var(--principal-escuro);
+  --bs-pagination-focus-box-shadow: 0 0 0 0.2rem rgba(29, 92, 87, 0.18);
+  --bs-pagination-border-color: var(--borda-campo);
+}
+
+/* pares rótulo/valor (ficha do paciente) */
+.lista-dados {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0;
+}
+
+.lista-dados dt {
+  font-weight: 500;
+  color: var(--texto-suave);
+}
+
+.lista-dados dd {
+  margin-bottom: 0;
+}
+
+@media (max-width: 575.98px) {
+  .lista-dados {
+    grid-template-columns: 1fr;
+    gap: 0.125rem;
+  }
+
+  .lista-dados dd {
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* prontuário embaixo da linha da consulta */
+.linha-prontuario > td {
+  background-color: #faf9f6;
+  font-size: 0.875rem;
+}
+
+.texto-preformatado {
+  white-space: pre-line;
+}
+
+/* exclusão no fim da ficha, separada das ações do dia a dia */
+.zona-exclusao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borda);
+}
+
+/* status da consulta */
+.status {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--bs-border-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.status-agendada   { color: #4a5a6a; background-color: #eceff2; }
+.status-confirmada { color: #1d5c57; background-color: #e3eeec; }
+.status-realizada  { color: #2f6b2f; background-color: #e6f0e2; }
+.status-cancelada  { color: #a23b2c; background-color: #f6e6e2; }
+.status-faltou     { color: #8a5a00; background-color: #f7eed9; }
+
+/* situação de cadastros (usuário ativo ou inativo) */
+.status-ativo      { color: #2f6b2f; background-color: #e6f0e2; }
+.status-inativo    { color: #6b6f73; background-color: #ecebe6; }
+
+.linha-inativa > td {
+  color: var(--texto-suave);
+}
+
+/* larguras máximas para formulários que não precisam da tela inteira */
+.painel-estreito {
+  max-width: 480px;
+}
+
+.painel-medio {
+  max-width: 760px;
+}
+
+/* lista vazia */
+.estado-vazio {
+  padding: 2.5rem 1rem;
+  text-align: center;
+}
+
+/* janela de confirmação */
+.modal-content {
+  border-color: var(--borda);
+}
+
+
+/* tela inicial: faixa com a próxima consulta e destaque dela na tabela */
+.proxima-consulta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #c7dcd8;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--principal-claro);
+}
+
+.proxima-consulta .rotulo {
+  margin-right: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--texto-suave);
+}
+
+.linha-proxima > td {
+  background-color: #f1f6f5;
+}
+
+.list-group {
+  --bs-list-group-border-color: #e7e4dc;
+}
+
+/* atalhos de período nos relatórios */
+.atalhos-periodo .btn-link {
+  padding-left: 0.375rem;
+  padding-right: 0.375rem;
+  color: var(--principal);
+  text-decoration: none;
+}
+
+/* impressão: só o conteúdo, sem menu, filtros, avisos e botões */
+@media print {
+  body {
+    background-color: #fff;
+  }
+
+  .menu-lateral,
+  .barra-topo,
+  .area-avisos,
+  .nao-imprimir,
+  .cabecalho-pagina .acoes {
+    display: none !important;
+  }
+
+  .conteudo {
+    margin-left: 0;
+    padding: 0;
+  }
+
+  .card {
+    break-inside: avoid;
+  }
+}
+
+
+/* 5. Páginas específicas -------------------------------------------------- */
+
+/* login */
+.pagina-externa {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.pagina-externa-conteudo {
+  width: 100%;
+  max-width: 380px;
+}
+
+.marca-externa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  color: var(--principal);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.painel-login .card-body {
+  padding: 1.5rem;
+}
+
+/* guia visual (/estilo) */
+.amostras-cor {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.amostra-cor {
+  border: 1px solid var(--borda);
+  border-radius: var(--bs-border-radius);
+  overflow: hidden;
+  font-size: 0.8125rem;
+  background-color: var(--superficie);
+}
+
+.amostra-cor .cor {
+  height: 44px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.amostra-cor .legenda {
+  padding: 0.375rem 0.5rem;
+}
+
+.amostra-cor code {
+  color: var(--texto-suave);
+}
+
+.cor-fundo            { background-color: var(--fundo); }
+.cor-superficie       { background-color: var(--superficie); }
+.cor-borda            { background-color: var(--borda); }
+.cor-texto            { background-color: var(--texto); }
+.cor-texto-suave      { background-color: var(--texto-suave); }
+.cor-principal        { background-color: var(--principal); }
+.cor-principal-escuro { background-color: var(--principal-escuro); }
+.cor-perigo           { background-color: var(--perigo); }

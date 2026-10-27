@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina %}
+
+{% block titulo %}Nova consulta{% endblock %}
+
+{# select com mensagem de erro do servidor; as opções vêm do bloco interno #}
+{% macro classe_campo(nome) %}form-select{% if erros.get(nome) %} is-invalid{% endif %}{% endmacro %}
+
+{% block conteudo %}
+{% call cabecalho_pagina("Nova consulta") %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('consultas.agenda') }}">
+    <i class="bi bi-arrow-left" aria-hidden="true"></i> Agenda
+  </a>
+{% endcall %}
+
+<div class="card painel-medio">
+  <div class="card-body">
+    <form method="post" class="needs-validation" novalidate data-nova-consulta
+          data-url-horarios="{{ url_for('consultas.horarios_livres') }}">
+
+      <section class="secao-formulario">
+        <h2>Paciente</h2>
+        <div class="row g-3">
+          <div class="col-md-5">
+            <label class="form-label" for="filtro-paciente">Procurar</label>
+            <input type="search" class="form-control" id="filtro-paciente" placeholder="Nome ou CPF" autocomplete="off">
+          </div>
+          <div class="col-md-7">
+            <label class="form-label" for="campo-id_paciente">Paciente <span class="obrigatorio" aria-hidden="true">*</span></label>
+            <select class="{{ classe_campo('id_paciente') }}" id="campo-id_paciente" name="id_paciente" required>
+              <option value="">Selecione...</option>
+              {% for p in pacientes %}
+                <option value="{{ p.id_paciente }}" {% if p.id_paciente|string == dados.get("id_paciente")|string %}selected{% endif %}>
+                  {{ p.nome }}{% if p.cpf %} — {{ p.cpf }}{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <div class="invalid-feedback">{{ erros.get("id_paciente") or "Escolha o paciente." }}</div>
+            {% if pode("pacientes_editar") %}
+              <div class="form-text">Paciente novo? <a href="{{ url_for('pacientes.novo') }}">Cadastre primeiro</a>.</div>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="secao-formulario">
+        <h2>Médico e horário</h2>
+        <div class="row g-3">
+          <div class="col-md-5">
+            <label class="form-label" for="filtro-especialidade">Especialidade</label>
+            <select class="form-select" id="filtro-especialidade">
+              <option value="">Todas</option>
+              {% for e in especialidades %}
+                <option value="{{ e.id_especialidade }}">{{ e.nome_especialidade }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-7">
+            <label class="form-label" for="campo-id_medico">Médico <span class="obrigatorio" aria-hidden="true">*</span></label>
+            <select class="{{ classe_campo('id_medico') }}" id="campo-id_medico" name="id_medico" required>
+              <option value="">Selecione...</option>
+              {% for m in medicos %}
+                <option value="{{ m.id_medico }}" data-especialidades="{{ m.especialidades|join(',') }}"
+                        {% if m.id_medico|string == dados.get("id_medico")|string %}selected{% endif %}>{{ m.nome_medico }}</option>
+              {% endfor %}
+            </select>
+            <div class="invalid-feedback">{{ erros.get("id_medico") or "Escolha o médico." }}</div>
+          </div>
+
+          <div class="col-6 col-md-4">
+            <label class="form-label" for="campo-data">Data <span class="obrigatorio" aria-hidden="true">*</span></label>
+            <input type="date" class="form-control{% if erros.get('data') %} is-invalid{% endif %}" id="campo-data"
+                   name="data" value="{{ dados.get('data') or '' }}" min="{{ hoje }}" required>
+            <div class="invalid-feedback">{{ erros.get("data") or "Informe a data." }}</div>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label" for="campo-hora">Horário <span class="obrigatorio" aria-hidden="true">*</span></label>
+            {# as opções são carregadas por nova-consulta.js conforme o médico e a data #}
+            <select class="{{ classe_campo('hora') }}" id="campo-hora" name="hora" required
+                    data-selecionado="{{ dados.get('hora') or '' }}" disabled>
+              <option value="">Escolha médico e data</option>
+            </select>
+            <div class="invalid-feedback">{{ erros.get("hora") or "Escolha um horário." }}</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="campo-id_sala">Sala <span class="obrigatorio" aria-hidden="true">*</span></label>
+            <select class="{{ classe_campo('id_sala') }}" id="campo-id_sala" name="id_sala" required>
+              <option value="">Selecione...</option>
+              {% for s in salas %}
+                <option value="{{ s.id_sala }}" {% if s.id_sala|string == dados.get("id_sala")|string %}selected{% endif %}>{{ s.id_sala }} — {{ s.descricao }}</option>
+              {% endfor %}
+            </select>
+            <div class="invalid-feedback">{{ erros.get("id_sala") or "Escolha a sala." }}</div>
+          </div>
+          <div class="col-12">
+            <p class="form-text mb-0" id="aviso-horarios" aria-live="polite">
+              Os horários livres aparecem depois de escolher o médico e a data. Cada consulta dura {{ duracao_minutos }} minutos.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div class="rodape-formulario">
+        <a class="btn btn-outline-secondary" href="{{ url_for('consultas.agenda') }}">Cancelar</a>
+        <button type="submit" class="btn btn-primary" data-enviando="Marcando...">Marcar consulta</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/nova-consulta.js') }}"></script>
+{% endblock %}

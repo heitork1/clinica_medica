@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, campo %}
+{% set menu_ativo = "minha-senha" %}
+
+{% block titulo %}Alterar senha{% endblock %}
+
+{% block conteudo %}
+{{ cabecalho_pagina("Alterar senha") }}
+
+<div class="card painel-estreito">
+  <div class="card-body">
+    <form method="post" class="needs-validation" novalidate>
+      <div class="row g-3">
+        {{ campo("senha_atual", "Senha atual", tipo="password", obrigatorio=True, coluna="col-12",
+                 erro=erros.senha_atual, mensagem_invalido="Informe a senha atual.",
+                 atributos={"autocomplete": "current-password"}) }}
+        {{ campo("nova_senha", "Nova senha", tipo="password", obrigatorio=True, coluna="col-12",
+                 erro=erros.nova_senha, ajuda="Pelo menos 6 caracteres.",
+                 mensagem_invalido="A senha precisa ter pelo menos 6 caracteres.",
+                 atributos={"autocomplete": "new-password", "minlength": 6}) }}
+        {{ campo("confirmacao_senha", "Repita a nova senha", tipo="password", obrigatorio=True, coluna="col-12",
+                 erro=erros.confirmacao_senha, mensagem_invalido="Repita a nova senha.",
+                 atributos={"autocomplete": "new-password"}) }}
+      </div>
+      <div class="rodape-formulario">
+        <a class="btn btn-outline-secondary" href="{{ url_for('inicio.inicio') }}">Cancelar</a>
+        <button type="submit" class="btn btn-primary" data-enviando="Salvando...">Salvar senha</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "macros.html" import cabecalho_pagina, estado_vazio %}
+
+{% block titulo %}Acesso negado{% endblock %}
+
+{% block conteudo %}
+{{ cabecalho_pagina("Acesso negado") }}
+<div class="card">
+  <div class="card-body">
+    {% call estado_vazio("O seu perfil não tem acesso a esta página.",
+                         "Se precisar desse acesso, fale com o administrador do sistema.") %}
+      <a class="btn btn-outline-secondary" href="{{ url_for('inicio.inicio') }}">Voltar ao início</a>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
