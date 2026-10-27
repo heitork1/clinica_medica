@@ -2,7 +2,7 @@
 
 Sistema web para uma clínica médica de pequeno porte: pacientes, médicos, agenda de consultas, prontuário, contas e pagamentos. Trabalho prático integrado das disciplinas de **Banco de Dados II** e **Análise e Desenvolvimento de Interfaces Web**.
 
-O planejamento e o andamento de cada fase estão em [plano-desenvolvimento.md](plano-desenvolvimento.md).
+O planejamento e o andamento de cada fase estão em [plano-dev.md](plano-dev.md).
 
 ## Tecnologias
 
@@ -42,12 +42,13 @@ O planejamento e o andamento de cada fase estão em [plano-desenvolvimento.md](p
    pip install -r requirements.txt
    ```
 
-4. Crie o banco e as tabelas (a tabela de usuários fica em um arquivo separado):
+4. Crie o banco, as tabelas e os gatilhos (a tabela de usuários fica em um arquivo separado):
 
    ```bash
    createdb -U postgres clinica_medica
    psql -U postgres -d clinica_medica -f banco/Trabalho1_ClinicaMedica.sql
    psql -U postgres -d clinica_medica -f banco/usuario.sql
+   psql -U postgres -d clinica_medica -f banco/funcoes-gatilhos.sql
    ```
 
 5. Copie `.env.exemplo` para `.env` e preencha a senha do PostgreSQL e a `SECRET_KEY`.

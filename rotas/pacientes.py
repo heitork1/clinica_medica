@@ -4,7 +4,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 
 from negocio import ErroNegocio, ErroValidacao
 from negocio.pacientes import SEXOS, ServicoPacientes
-from rotas.acesso import exige_acesso
+from rotas.acesso import exige_acesso, usuario_logado
 
 bp = Blueprint("pacientes", __name__, url_prefix="/pacientes")
 servico = ServicoPacientes()
@@ -24,7 +24,8 @@ def lista():
 @exige_acesso("pacientes")
 def ficha(id_paciente):
     paciente = servico.buscar(id_paciente) or abort(404)
-    return render_template("pacientes/ficha.html", paciente=paciente, consultas=servico.consultas(id_paciente),
+    return render_template("pacientes/ficha.html", paciente=paciente,
+                           consultas=servico.consultas(id_paciente, usuario_logado()),
                            menu_ativo="pacientes")
 
 

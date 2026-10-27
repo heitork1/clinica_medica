@@ -13,7 +13,7 @@ Documentos de referência, em `docs/`: enunciado (`TEMA 2- SISTEMA DE CONTROLE D
 
 | Fase | Descrição | Situação |
 |---|---|---|
-| 0 | Ajustes no esquema | pendente [BD]; a tabela `usuario` já existe em `banco/usuario.sql` |
+| 0 | Ajustes no esquema | em andamento [BD]; item 1 da seção 5.2 feito, gatilhos em `banco/funcoes-gatilhos.sql`; a tabela `usuario` já existe em `banco/usuario.sql` |
 | 1 | Esqueleto do projeto | concluída |
 | 2 | Base visual | concluída |
 | 3 | JavaScript comum | concluída |
@@ -31,7 +31,7 @@ Cada fase concluída recebe, logo abaixo do seu checklist (seção 8), um **Regi
 
 ### Testes
 
-Os testes de cada fase rodam contra um PostgreSQL real, criado só para teste com o script `banco/Trabalho1_ClinicaMedica.sql` (com a vírgula do item 1 da seção 5.2 removida em uma cópia) e `banco/usuario.sql`. São três baterias:
+Os testes de cada fase rodam contra um PostgreSQL real, criado só para teste com `banco/Trabalho1_ClinicaMedica.sql`, `banco/usuario.sql` e `banco/funcoes-gatilhos.sql`. São três baterias:
 
 | Bateria | Ferramenta | O que cobre | Resultado |
 |---|---|---|---|
@@ -44,6 +44,8 @@ Os testes de cada fase rodam contra um PostgreSQL real, criado só para teste co
 | Servidor, fases 10–11 | cliente de testes do Flask + PostgreSQL | conta, validações de pagamento, convênio válido ou vencido, pagamentos parciais, exclusão, bloqueio do atendimento pago, gatilho de exemplo, início por perfil, números dos relatórios | 65 de 65 |
 | Navegador, fases 10–11 | Playwright com Google Chrome | cálculo automático da parte do paciente, pagamento acima do saldo barrado, campo do convênio que aparece e some, impressão do relatório, telas no celular | 20 de 20 |
 | JavaScript | página de testes no Chrome sem interface | funções de máscara, CPF, linhas dinâmicas, filtro, confirmação | 33 de 33 |
+| Gatilhos, pela aplicação | cliente de testes do Flask + PostgreSQL com `banco/funcoes-gatilhos.sql` | agendamento e pagamento com a conferência da aplicação contornada, sobreposição de 30 minutos, mudanças de status, grade alterada, atendimento e correção, procedimentos alterados direto no banco | 26 de 26, e 2 lacunas registradas na seção 5.3 |
+| Gatilhos, no banco | `psql` e duas conexões simultâneas | roteiro de teste da etapa 3, limites de horário (encostar, fim do turno, meia-noite), status nulo e cancelado, pagamentos por `INSERT` e `UPDATE`, convênio vencido, duas gravações ao mesmo tempo | 41 de 41 |
 
 A cada fase, todas as baterias anteriores rodam de novo, para conferir que nada deixou de funcionar. Os scripts de teste ficam fora do repositório.
 
@@ -104,8 +106,8 @@ clinica_medica/
 ├── config.py                   # lê o .env
 ├── requirements.txt            # Flask, psycopg2-binary, python-dotenv
 ├── .env.exemplo                # modelo do .env (conexão com o banco, SECRET_KEY, FLASK_DEBUG)
-├── readme.md
-├── plano-desenvolvimento.md
+├── README.md
+├── plano-dev.md
 ├── banco/
 │   ├── Trabalho1_ClinicaMedica.sql   # script de criação (nome original)
 │   ├── usuario.sql             # tabela de login (até ser incorporada ao script principal)
@@ -265,7 +267,7 @@ CREATE TABLE usuario (
 
 | # | Onde | Ajuste | Motivo |
 |---|---|---|---|
-| 1 | `sala` | remover a vírgula depois de `descricao VARCHAR(100),` | erro de sintaxe que impede a execução do script |
+| 1 | `sala` | remover a vírgula depois de `descricao VARCHAR(100),` | erro de sintaxe que impede a execução do script. Feito |
 | 2 | `paciente."e-mail"` | renomear para `email` | o hífen obriga aspas em toda consulta |
 | 3 | `consulta.status` | `CHECK (status IN ('AGENDADA','CONFIRMADA','REALIZADA','CANCELADA','FALTOU'))` | o enunciado define os cinco status |
 | 4 | `pagamento` | adicionar `valor_paciente` (ou definir que `valor_pago` é a parte do paciente) | o enunciado exige os valores do convênio e do paciente separados; o DER tem `valor_paciente`. Adotado na Fase 10, sem mudar o banco: `valor_pago` é a parte do paciente e `valor_convenio` a do convênio |
@@ -279,14 +281,22 @@ CREATE TABLE usuario (
 
 ### 5.3 Funções e gatilhos usados pela interface
 
-Qualquer mensagem levantada por um gatilho (`RAISE EXCEPTION`) aparece na tela como aviso, com os dados do formulário preservados. As regras de agenda e de conta também são conferidas pela aplicação (Fases 8 e 9), para o sistema funcionar corretamente antes de os gatilhos existirem; com eles, o banco passa a garantir as mesmas regras mesmo fora da aplicação. Os dois lados usam a mesma duração de consulta (30 minutos, `DURACAO_CONSULTA` em `negocio/agenda.py`).
+Qualquer mensagem levantada por um gatilho (`RAISE EXCEPTION`) aparece na tela como aviso, com os dados do formulário preservados. As regras de agenda e de conta também são conferidas pela aplicação (Fases 8 e 9), para o sistema funcionar corretamente antes de os gatilhos existirem; com eles, o banco passa a garantir as mesmas regras mesmo fora da aplicação. Os dois lados usam a mesma duração de consulta (30 minutos: `DURACAO_CONSULTA` em `negocio/agenda.py` e `fn_duracao_consulta()` no banco).
 
-- Impedir consulta fora do horário de atendimento do médico.
-- Impedir dois agendamentos do mesmo médico, ou da mesma sala, no mesmo horário.
-- Preencher `consulta_procedimento.valor_unitario` com `procedimento.valor`.
-- Recalcular `conta.valor_procedimento` quando os procedimentos da consulta mudam.
-- Criar a conta quando a consulta passa a `REALIZADA`.
-- Impedir pagamentos acima do total da conta.
+As funções e os gatilhos ficam em `banco/funcoes-gatilhos.sql`, executado depois do script de criação. O arquivo pode ser executado de novo: substitui as funções e recria os gatilhos.
+
+| Regra | Gatilho | Situação |
+|---|---|---|
+| Impedir consulta fora do horário de atendimento do médico | `trg_valida_horario_medico` | feito; a consulta inteira (início + 30 min) precisa caber na faixa do dia |
+| Impedir consultas sobrepostas do mesmo médico ou na mesma sala | `trg_valida_conflito_agenda` | feito; considera a duração (09:00 ocupa até 09:30) e consultas com status nulo; cancelada não ocupa |
+| Preencher `consulta_procedimento.valor_unitario` com `procedimento.valor` | — | pendente; a aplicação preenche, e o recálculo da conta usa `procedimento.valor` quando o campo está vazio |
+| Recalcular `conta.valor_procedimento` quando os procedimentos da consulta mudam | `trg_atualiza_valor_procedimento_conta` | feito |
+| Criar a conta quando a consulta passa a `REALIZADA` | — | pendente; a aplicação cria a conta no atendimento |
+| Impedir pagamentos acima do total da conta | `trg_valida_pagamento` | feito; também barra valores negativos ou zerados, valor de convênio sem convênio e convênio sem carteirinha válida na data do pagamento |
+
+Gravações simultâneas: o gatilho de agenda trava o médico e a sala (`pg_advisory_xact_lock`) e o de pagamento trava a conta (`SELECT ... FOR UPDATE`) até o fim da transação. Assim, duas recepcionistas gravando ao mesmo tempo não passam juntas pela verificação: a segunda espera a primeira e é recusada se houver conflito.
+
+Com os quatro gatilhos instalados, todas as baterias de teste continuam passando. As inserções diretas que montam consultas no passado, na preparação dos testes, desligam os gatilhos só naquele comando (`SET LOCAL session_replication_role = replica`).
 
 ---
 
@@ -305,7 +315,7 @@ Qualquer mensagem levantada por um gatilho (`RAISE EXCEPTION`) aparece na tela c
 
 - A tabela acima está no dicionário `ACESSO` de `rotas/acesso.py`. É a única fonte da regra: as rotas usam `exige_acesso("area")` ou `pode("area")`, e o menu usa `pode("area")` para decidir o que mostrar. Além das áreas da tabela, há as ações específicas `agendar` (ADMIN, RECEPCAO: marcar consultas e mudar o status), `financeiro` (ADMIN, RECEPCAO: conta e pagamentos), `pagamentos_excluir` (ADMIN), `pacientes_editar` (ADMIN, RECEPCAO), `pacientes_excluir` (ADMIN), `medicos_editar` (ADMIN) e `prontuario` (ADMIN, MEDICO).
 - Exclusão de pacientes e médicos: só `ADMIN`.
-- Sintomas, diagnóstico e prescrição aparecem apenas para `MEDICO` e `ADMIN`; a recepção vê, na ficha do paciente, só data, médico e status das consultas.
+- Sintomas, diagnóstico e prescrição aparecem para `ADMIN` e para o `MEDICO` da própria consulta; um médico não vê o prontuário das consultas de outro. A recepção, e o médico nas consultas de outros, veem na ficha do paciente só data, médico e status. O filtro é feito no servidor (`ServicoPacientes.consultas`): os campos nem chegam ao template.
 - O menu mostra apenas o que o perfil acessa. Uma rota acessada sem permissão responde 403 com `erros/acesso-negado.html`.
 
 ---
@@ -353,5 +363,5 @@ Qualquer mensagem levantada por um gatilho (`RAISE EXCEPTION`) aparece na tela c
 - [ ] Responsividade (375px de largura), navegação por teclado, foco visível, `label` em todos os campos, contraste
 - [ ] Revisão de consistência: textos, botões, ordem das ações
 - [ ] `banco/dados-exemplo.sql` com dados realistas e um usuário de cada perfil [BD]
-- [ ] `readme.md` final com capturas de tela e roteiro de demonstração (login → agendar → atender → cobrar)
+- [ ] `README.md` final com capturas de tela e roteiro de demonstração (login → agendar → atender → cobrar)
 

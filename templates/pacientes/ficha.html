@@ -97,8 +97,7 @@
             <tr>
               <td class="numero">
                 {# o atendimento abre para o administrador e para o médico da consulta #}
-                {% if c.status == "REALIZADA" and (usuario_logado.perfil == "ADMIN" or
-                      (usuario_logado.perfil == "MEDICO" and usuario_logado.id_medico == c.id_medico)) %}
+                {% if c.status == "REALIZADA" and c.pode_ver_prontuario %}
                   <a href="{{ url_for('consultas.atendimento', id_consulta=c.id_consulta) }}">{{ c.data_hora_marcado|data_hora }}</a>
                 {% else %}
                   {{ c.data_hora_marcado|data_hora or "—" }}
@@ -108,8 +107,8 @@
               <td class="d-none d-md-table-cell">{{ c.sala or "—" }}</td>
               <td>{{ etiqueta_status(c.status) if c.status else "—" }}</td>
             </tr>
-            {# prontuário: só para os perfis com acesso (seção 6 do plano) #}
-            {% if pode("prontuario") and (c.sintomas or c.diagnostico or c.prescricao) %}
+            {# prontuário: administrador e médico da própria consulta (seção 6 do plano) #}
+            {% if c.pode_ver_prontuario and (c.sintomas or c.diagnostico or c.prescricao) %}
               <tr class="linha-prontuario">
                 <td colspan="4">
                   <dl class="lista-dados mb-0">

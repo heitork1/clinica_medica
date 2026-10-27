@@ -13,6 +13,13 @@ SEXOS = ["Feminino", "Masculino", "Outro"]
 POR_PAGINA = 20
 
 
+def pode_ver_prontuario(consulta, usuario):
+    """O administrador vê todos os prontuários; o médico, só os das próprias consultas."""
+    if usuario["perfil"] == "ADMIN":
+        return True
+    return usuario["perfil"] == "MEDICO" and usuario["id_medico"] == consulta["id_medico"]
+
+
 class ServicoPacientes:
 
     def __init__(self):
@@ -44,8 +51,16 @@ class ServicoPacientes:
                 plano["vencido"] = bool(plano["validade"] and plano["validade"] < hoje)
         return paciente
 
-    def consultas(self, id_paciente):
-        return self.paciente_dao.listar_consultas(id_paciente)
+    def consultas(self, id_paciente, usuario):
+        """Consultas do paciente. Sintomas, diagnóstico e prescrição só vão para o
+        administrador e para o médico da própria consulta (RNF04); para os demais
+        os campos chegam vazios ao template."""
+        consultas = self.paciente_dao.listar_consultas(id_paciente)
+        for consulta in consultas:
+            consulta["pode_ver_prontuario"] = pode_ver_prontuario(consulta, usuario)
+            if not consulta["pode_ver_prontuario"]:
+                consulta.update(sintomas=None, diagnostico=None, prescricao=None)
+        return consultas
 
     def convenios_disponiveis(self):
         return self.convenio_dao.listar()

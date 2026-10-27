@@ -35,7 +35,7 @@ CREATE TABLE plano_convenio (
 
 CREATE TABLE sala (
 	id_sala SERIAL PRIMARY KEY,
-	descricao VARCHAR(100),
+	descricao VARCHAR(100)
 );
 
 

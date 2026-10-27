@@ -10,8 +10,8 @@ from negocio import ErroNegocio, ErroValidacao, erro_do_banco
 from negocio.medicos import DIAS_SEMANA, ORDEM_DIAS
 from negocio.validacao import converter_data, converter_hora
 
-# Duração de cada consulta (item 9 da seção 5.2 do plano). Os gatilhos do banco,
-# quando existirem, devem usar o mesmo valor.
+# Duração de cada consulta (item 9 da seção 5.2 do plano). Os gatilhos do banco usam
+# o mesmo valor, em fn_duracao_consulta() (banco/funcoes-gatilhos.sql).
 DURACAO_CONSULTA = timedelta(minutes=30)
 
 STATUS = {
