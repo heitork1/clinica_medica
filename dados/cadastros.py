@@ -1,112 +1,180 @@
-"""DAOs das tabelas de cadastro simples: convênio, especialidade, procedimento e sala.
+"""Camada de Dados dos cadastros simples: Convênio, Especialidade, Procedimento e Sala.
 
-As quatro têm o mesmo formato (chave SERIAL e poucas colunas), então dividem a
-classe CadastroDAO; cada subclasse só informa a tabela e as colunas.
-Os nomes de tabela e coluna entram na SQL com psycopg2.sql.Identifier, que
-coloca as aspas corretas; os valores sempre vão como parâmetros (%s).
+Cada classe fala direto com UMA tabela, usando SQL puro. Todas têm os mesmos
+cinco métodos:
+  listar()        -> SELECT de todos os registros
+  buscar_por_id() -> SELECT de um registro
+  inserir()       -> INSERT
+  atualizar()     -> UPDATE
+  excluir()       -> DELETE
+  existe()        -> já tem outro registro com esse nome? (evita duplicados)
+
+`chave` é o nome da coluna de ID, usado pela tela para montar os links.
+Os valores vão sempre como parâmetros (%s), nunca colados no texto do SQL.
 """
-from psycopg2 import sql
-
 from dados.conexao import conexao_banco
 
 
-class CadastroDAO:
-    tabela = None
-    chave = None
-    colunas = ()
-    ordem = None
-
-    def _campos(self):
-        return sql.SQL(", ").join(sql.Identifier(c) for c in (self.chave, *self.colunas))
+class ConvenioDAO:
+    chave = "id_convenio"
 
     def listar(self):
-        consulta = sql.SQL("SELECT {campos} FROM {tabela} ORDER BY {ordem}").format(
-            campos=self._campos(),
-            tabela=sql.Identifier(self.tabela),
-            ordem=sql.Identifier(self.ordem),
-        )
         with conexao_banco() as conexao, conexao.cursor() as cursor:
-            cursor.execute(consulta)
+            cursor.execute("SELECT id_convenio, nome FROM convenio ORDER BY nome")
             return cursor.fetchall()
 
     def buscar_por_id(self, id_registro):
-        consulta = sql.SQL("SELECT {campos} FROM {tabela} WHERE {chave} = %s").format(
-            campos=self._campos(),
-            tabela=sql.Identifier(self.tabela),
-            chave=sql.Identifier(self.chave),
-        )
         with conexao_banco() as conexao, conexao.cursor() as cursor:
-            cursor.execute(consulta, (id_registro,))
+            cursor.execute("SELECT id_convenio, nome FROM convenio WHERE id_convenio = %s", (id_registro,))
             return cursor.fetchone()
 
     def inserir(self, dados):
-        consulta = sql.SQL("INSERT INTO {tabela} ({colunas}) VALUES ({valores}) RETURNING {chave}").format(
-            tabela=sql.Identifier(self.tabela),
-            colunas=sql.SQL(", ").join(sql.Identifier(c) for c in self.colunas),
-            valores=sql.SQL(", ").join(sql.Placeholder() for _ in self.colunas),
-            chave=sql.Identifier(self.chave),
-        )
         with conexao_banco() as conexao, conexao.cursor() as cursor:
-            cursor.execute(consulta, [dados[c] for c in self.colunas])
-            return cursor.fetchone()[self.chave]
+            cursor.execute("INSERT INTO convenio (nome) VALUES (%(nome)s) RETURNING id_convenio", dados)
+            return cursor.fetchone()["id_convenio"]
 
     def atualizar(self, id_registro, dados):
-        consulta = sql.SQL("UPDATE {tabela} SET {atribuicoes} WHERE {chave} = %s").format(
-            tabela=sql.Identifier(self.tabela),
-            atribuicoes=sql.SQL(", ").join(
-                sql.SQL("{} = %s").format(sql.Identifier(c)) for c in self.colunas
-            ),
-            chave=sql.Identifier(self.chave),
-        )
         with conexao_banco() as conexao, conexao.cursor() as cursor:
-            cursor.execute(consulta, [dados[c] for c in self.colunas] + [id_registro])
+            cursor.execute(
+                "UPDATE convenio SET nome = %(nome)s WHERE id_convenio = %(id)s",
+                {**dados, "id": id_registro},
+            )
 
     def excluir(self, id_registro):
-        consulta = sql.SQL("DELETE FROM {tabela} WHERE {chave} = %s").format(
-            tabela=sql.Identifier(self.tabela),
-            chave=sql.Identifier(self.chave),
-        )
         with conexao_banco() as conexao, conexao.cursor() as cursor:
-            cursor.execute(consulta, (id_registro,))
-            return cursor.rowcount > 0
+            cursor.execute("DELETE FROM convenio WHERE id_convenio = %s", (id_registro,))
 
-    def existe(self, coluna, valor, ignorar_id=None):
-        """Há outro registro com o mesmo valor na coluna (sem diferenciar maiúsculas)?"""
-        consulta = sql.SQL(
-            "SELECT 1 FROM {tabela} WHERE lower({coluna}) = lower(%s) AND {chave} IS DISTINCT FROM %s"
-        ).format(
-            tabela=sql.Identifier(self.tabela),
-            coluna=sql.Identifier(coluna),
-            chave=sql.Identifier(self.chave),
-        )
+    def existe(self, nome, ignorar_id=None):
+        """ignorar_id: na edição, o próprio registro não conta como duplicado."""
         with conexao_banco() as conexao, conexao.cursor() as cursor:
-            cursor.execute(consulta, (valor, ignorar_id))
+            cursor.execute(
+                "SELECT 1 FROM convenio WHERE lower(nome) = lower(%s) AND id_convenio IS DISTINCT FROM %s",
+                (nome, ignorar_id),
+            )
             return cursor.fetchone() is not None
 
 
-class ConvenioDAO(CadastroDAO):
-    tabela = "convenio"
-    chave = "id_convenio"
-    colunas = ("nome",)
-    ordem = "nome"
-
-
-class EspecialidadeDAO(CadastroDAO):
-    tabela = "especialidade"
+class EspecialidadeDAO:
     chave = "id_especialidade"
-    colunas = ("nome_especialidade",)
-    ordem = "nome_especialidade"
+
+    def listar(self):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute("SELECT id_especialidade, nome_especialidade FROM especialidade ORDER BY nome_especialidade")
+            return cursor.fetchall()
+
+    def buscar_por_id(self, id_registro):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "SELECT id_especialidade, nome_especialidade FROM especialidade WHERE id_especialidade = %s",
+                (id_registro,),
+            )
+            return cursor.fetchone()
+
+    def inserir(self, dados):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO especialidade (nome_especialidade) VALUES (%(nome_especialidade)s) RETURNING id_especialidade",
+                dados,
+            )
+            return cursor.fetchone()["id_especialidade"]
+
+    def atualizar(self, id_registro, dados):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "UPDATE especialidade SET nome_especialidade = %(nome_especialidade)s WHERE id_especialidade = %(id)s",
+                {**dados, "id": id_registro},
+            )
+
+    def excluir(self, id_registro):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute("DELETE FROM especialidade WHERE id_especialidade = %s", (id_registro,))
+
+    def existe(self, nome, ignorar_id=None):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM especialidade WHERE lower(nome_especialidade) = lower(%s) AND id_especialidade IS DISTINCT FROM %s",
+                (nome, ignorar_id),
+            )
+            return cursor.fetchone() is not None
 
 
-class ProcedimentoDAO(CadastroDAO):
-    tabela = "procedimento"
+class ProcedimentoDAO:
     chave = "id_procedimento"
-    colunas = ("descricao", "valor")
-    ordem = "descricao"
+
+    def listar(self):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute("SELECT id_procedimento, descricao, valor FROM procedimento ORDER BY descricao")
+            return cursor.fetchall()
+
+    def buscar_por_id(self, id_registro):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "SELECT id_procedimento, descricao, valor FROM procedimento WHERE id_procedimento = %s",
+                (id_registro,),
+            )
+            return cursor.fetchone()
+
+    def inserir(self, dados):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO procedimento (descricao, valor) VALUES (%(descricao)s, %(valor)s) RETURNING id_procedimento",
+                dados,
+            )
+            return cursor.fetchone()["id_procedimento"]
+
+    def atualizar(self, id_registro, dados):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "UPDATE procedimento SET descricao = %(descricao)s, valor = %(valor)s WHERE id_procedimento = %(id)s",
+                {**dados, "id": id_registro},
+            )
+
+    def excluir(self, id_registro):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute("DELETE FROM procedimento WHERE id_procedimento = %s", (id_registro,))
+
+    def existe(self, descricao, ignorar_id=None):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM procedimento WHERE lower(descricao) = lower(%s) AND id_procedimento IS DISTINCT FROM %s",
+                (descricao, ignorar_id),
+            )
+            return cursor.fetchone() is not None
 
 
-class SalaDAO(CadastroDAO):
-    tabela = "sala"
+class SalaDAO:
     chave = "id_sala"
-    colunas = ("descricao",)
-    ordem = "id_sala"
+
+    def listar(self):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute("SELECT id_sala, descricao FROM sala ORDER BY id_sala")
+            return cursor.fetchall()
+
+    def buscar_por_id(self, id_registro):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute("SELECT id_sala, descricao FROM sala WHERE id_sala = %s", (id_registro,))
+            return cursor.fetchone()
+
+    def inserir(self, dados):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute("INSERT INTO sala (descricao) VALUES (%(descricao)s) RETURNING id_sala", dados)
+            return cursor.fetchone()["id_sala"]
+
+    def atualizar(self, id_registro, dados):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "UPDATE sala SET descricao = %(descricao)s WHERE id_sala = %(id)s",
+                {**dados, "id": id_registro},
+            )
+
+    def excluir(self, id_registro):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute("DELETE FROM sala WHERE id_sala = %s", (id_registro,))
+
+    def existe(self, descricao, ignorar_id=None):
+        with conexao_banco() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM sala WHERE lower(descricao) = lower(%s) AND id_sala IS DISTINCT FROM %s",
+                (descricao, ignorar_id),
+            )
+            return cursor.fetchone() is not None

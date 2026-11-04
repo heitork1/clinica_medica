@@ -21,6 +21,7 @@ def pode_ver_prontuario(consulta, usuario):
 
 
 class ServicoPacientes:
+    """Regras do paciente. Fluxo de salvar: ler_formulario -> _validar -> DAO grava no banco."""
 
     def __init__(self):
         self.paciente_dao = PacienteDAO()
@@ -29,16 +30,17 @@ class ServicoPacientes:
     def listar(self, busca="", pagina=1):
         """Devolve (pacientes da página, total encontrado, total de páginas, página mostrada)."""
         busca = (busca or "").strip()
-        digitos = somente_digitos(busca)
-        # só busca por CPF quando o texto digitado é praticamente só número
-        if len(digitos) < 3 or len(digitos) < len(busca.replace(".", "").replace("-", "")):
-            digitos = ""
+
+        # só procura por CPF quando o texto é número (aceita pontos e traço) com 3+ dígitos
+        digitos = ""
+        if busca.replace(".", "").replace("-", "").isdigit() and len(somente_digitos(busca)) >= 3:
+            digitos = somente_digitos(busca)
 
         pagina = max(pagina, 1)
         pacientes, total = self.paciente_dao.listar(busca, digitos, POR_PAGINA, (pagina - 1) * POR_PAGINA)
         paginas = max((total + POR_PAGINA - 1) // POR_PAGINA, 1)
         if pagina > paginas:
-            # endereço com página que não existe mais (ex.: depois de exclusões): mostra a última
+            # página que não existe mais (ex.: depois de exclusões): mostra a última
             pagina = paginas
             pacientes, total = self.paciente_dao.listar(busca, digitos, POR_PAGINA, (pagina - 1) * POR_PAGINA)
         return pacientes, total, paginas, pagina
@@ -183,6 +185,7 @@ class ServicoPacientes:
         return paciente, telefones, planos
 
     def _validar_planos(self, planos, erros):
+        """Valida cada convênio do paciente; qualquer problema vira o erro do campo 'convenios'."""
         existentes = {c["id_convenio"] for c in self.convenio_dao.listar()}
         validados, usados = [], set()
 

@@ -1,64 +1,44 @@
--- Funções e gatilhos em PL/pgSQL. Executar depois de Trabalho1_ClinicaMedica.sql.
--- O arquivo pode ser executado de novo: as funções são substituídas e os gatilhos recriados.
-
 ---================================================================================
---ETAPA 3 GATILHOS E FUNÇÕES
----================================================================================
-
--- Duração de cada consulta. A aplicação usa o mesmo valor (DURACAO_CONSULTA em negocio/agenda.py).
-CREATE OR REPLACE FUNCTION fn_duracao_consulta()
-RETURNS INTERVAL AS $$
-    SELECT INTERVAL '30 minutes';
-$$ LANGUAGE sql IMMUTABLE;
-
-
--- GATILHO 1: impede consultas sobrepostas do mesmo médico ou na mesma sala.
--- Duas consultas se sobrepõem quando uma começa antes de a outra terminar
--- (09:00 ocupa até 09:30, então 09:15 conflita e 09:30 não).
+-- TRABALHO PRÁTICO - BANCO DE DADOS II
+-- ETAPA 3: GATILHOS E FUNÇÕES (TRIGGERS & PROCEDURES)
+-- ================================================================================
+-- GATILHO 1: Validação de Conflito de Agenda (Médico e Sala)
+-- Tabela: consulta
+-- Momento: BEFORE INSERT OR UPDATE
+-- ================================================================================
+-- Garante que um médico não tenha duas consultas marcadas no mesmo horário
+-- e que uma mesma sala não seja ocupada por duas consultas ao mesmo tempo.
+-- Consultas canceladas não geram conflito.
 CREATE OR REPLACE FUNCTION fn_valida_conflito_agenda()
 RETURNS TRIGGER AS $$
-DECLARE
-    v_inicio TIMESTAMP := NEW.data_hora_marcado;
-    v_fim    TIMESTAMP := NEW.data_hora_marcado + fn_duracao_consulta();
 BEGIN
-    -- Ignora consultas canceladas
-    IF NEW.status = 'CANCELADA' OR NEW.data_hora_marcado IS NULL THEN
+    -- Se a consulta foi cancelada, não precisa verificar conflito
+    IF NEW.status = 'CANCELADA' THEN
         RETURN NEW;
     END IF;
 
-    -- Trava o médico e a sala até o fim da transação: duas gravações simultâneas
-    -- no mesmo horário esperam uma pela outra em vez de passarem juntas pela verificação.
-    PERFORM pg_advisory_xact_lock(1, NEW.id_medico);
-    IF NEW.id_sala IS NOT NULL THEN
-        PERFORM pg_advisory_xact_lock(2, NEW.id_sala);
-    END IF;
-
-    -- Conflito de médico
+    -- 1. Verifica se o médico já possui outra consulta marcada no mesmo dia e horário
     IF EXISTS (
         SELECT 1 FROM consulta c
         WHERE c.id_medico = NEW.id_medico
-          AND c.data_hora_marcado < v_fim
-          AND c.data_hora_marcado + fn_duracao_consulta() > v_inicio
-          AND c.status IS DISTINCT FROM 'CANCELADA'
+          AND c.data_hora_marcado = NEW.data_hora_marcado
+          AND c.status <> 'CANCELADA'
           AND c.id_consulta <> COALESCE(NEW.id_consulta, -1)
     ) THEN
-        RAISE EXCEPTION '% já tem consulta marcada nesse horário (%).',
-            (SELECT nome_medico FROM medico WHERE id_medico = NEW.id_medico),
-            to_char(v_inicio, 'DD/MM/YYYY HH24:MI');
+        RAISE EXCEPTION 'O médico já possui consulta marcada no horário %.',
+            to_char(NEW.data_hora_marcado, 'DD/MM/YYYY HH24:MI');
     END IF;
 
-    -- Conflito de sala
+    -- 2. Se foi informada uma sala, verifica se ela já está ocupada no mesmo dia e horário
     IF NEW.id_sala IS NOT NULL AND EXISTS (
         SELECT 1 FROM consulta c
         WHERE c.id_sala = NEW.id_sala
-          AND c.data_hora_marcado < v_fim
-          AND c.data_hora_marcado + fn_duracao_consulta() > v_inicio
-          AND c.status IS DISTINCT FROM 'CANCELADA'
+          AND c.data_hora_marcado = NEW.data_hora_marcado
+          AND c.status <> 'CANCELADA'
           AND c.id_consulta <> COALESCE(NEW.id_consulta, -1)
     ) THEN
-        RAISE EXCEPTION 'A sala % já está ocupada nesse horário (%).',
-            (SELECT descricao FROM sala WHERE id_sala = NEW.id_sala),
-            to_char(v_inicio, 'DD/MM/YYYY HH24:MI');
+        RAISE EXCEPTION 'A sala já está ocupada no horário %.',
+            to_char(NEW.data_hora_marcado, 'DD/MM/YYYY HH24:MI');
     END IF;
 
     RETURN NEW;
@@ -73,15 +53,20 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_valida_conflito_agenda();
 
 
--- GATILHO 2: a consulta inteira (início + duração) precisa caber em uma faixa
--- de atendimento do médico naquele dia da semana.
--- Os valores de dia_semana devem ser cadastrados no banco em maiúsculas e sem acento!
+-- ================================================================================
+-- GATILHO 2: Validação da Grade de Horários do Médico
+-- Tabela: consulta
+-- Momento: BEFORE INSERT OR UPDATE
+-- ================================================================================
+-- Garante que a consulta seja marcada apenas em um dia e horário em que o
+-- médico realmente atenda (conforme a tabela horario_medico e horario).
 CREATE OR REPLACE FUNCTION fn_valida_horario_medico()
 RETURNS TRIGGER AS $$
 DECLARE
     v_dia_semana TEXT;
-    v_dia        DATE;
+    v_hora       TIME;
 BEGIN
+    -- Se a consulta foi cancelada, não precisa validar grade
     IF NEW.status = 'CANCELADA' THEN
         RETURN NEW;
     END IF;
@@ -90,7 +75,7 @@ BEGIN
         RAISE EXCEPTION 'Informe a data e a hora da consulta.';
     END IF;
 
-    -- Mapeia o número do dia para o texto usado na tabela horario
+    -- Converte o dia da semana da data marcada (0=Domingo, 1=Segunda ... 6=Sábado)
     v_dia_semana := CASE EXTRACT(DOW FROM NEW.data_hora_marcado)::INT
         WHEN 0 THEN 'DOMINGO'
         WHEN 1 THEN 'SEGUNDA'
@@ -100,23 +85,22 @@ BEGIN
         WHEN 5 THEN 'SEXTA'
         WHEN 6 THEN 'SABADO'
     END;
-    v_dia := NEW.data_hora_marcado::DATE;
 
-    -- compara como data + hora para que uma consulta perto da meia-noite não "volte" para 00:00
+    -- Extrai apenas a hora da consulta
+    v_hora := NEW.data_hora_marcado::TIME;
+
+    -- Verifica se o médico possui expediente cadastrado para esse dia e horário
     IF NOT EXISTS (
         SELECT 1
         FROM horario_medico hm
         JOIN horario h ON h.id_horario = hm.id_horario
         WHERE hm.id_medico = NEW.id_medico
           AND UPPER(h.dia_semana) = v_dia_semana
-          AND NEW.data_hora_marcado >= v_dia + h.hora_inicio
-          AND NEW.data_hora_marcado + fn_duracao_consulta() <= v_dia + h.hora_fim
+          AND v_hora >= h.hora_inicio
+          AND v_hora <  h.hora_fim
     ) THEN
-        RAISE EXCEPTION '% não atende em % às % (a consulta dura %).',
-            (SELECT nome_medico FROM medico WHERE id_medico = NEW.id_medico),
-            to_char(v_dia, 'DD/MM/YYYY'),
-            to_char(NEW.data_hora_marcado, 'HH24:MI'),
-            to_char(fn_duracao_consulta(), 'FMMI "minutos"');
+        RAISE EXCEPTION 'O médico não atende em % às %.',
+            v_dia_semana, to_char(v_hora, 'HH24:MI');
     END IF;
 
     RETURN NEW;
@@ -131,13 +115,20 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_valida_horario_medico();
 
 
--- GATILHO 3: recalcula conta.valor_procedimento quando os procedimentos da consulta mudam.
+-- ================================================================================
+-- GATILHO 3: Atualização Automática do Valor de Procedimentos na Conta
+-- Tabela: consulta_procedimento
+-- Momento: AFTER INSERT OR UPDATE OR DELETE
+-- ================================================================================
+-- Sempre que um procedimento for adicionado, alterado ou excluído de uma consulta,
+-- este gatilho recalcula o total dos procedimentos e atualiza a tabela conta.
 CREATE OR REPLACE FUNCTION fn_atualiza_valor_procedimento_conta()
 RETURNS TRIGGER AS $$
 DECLARE
     v_consulta_old INTEGER;
     v_consulta_new INTEGER;
 BEGIN
+    -- Identifica o id_consulta afetado antes e/ou depois da operação
     IF TG_OP IN ('UPDATE', 'DELETE') THEN
         v_consulta_old := OLD.id_consulta;
     END IF;
@@ -145,8 +136,7 @@ BEGIN
         v_consulta_new := NEW.id_consulta;
     END IF;
 
-    -- Recalcula a(s) conta(s) afetada(s).
-    -- Se valor_unitario não foi informado, usa o valor cadastrado no procedimento.
+    -- Recalcula o total de procedimentos somando (quantidade * valor) de cada um
     UPDATE conta ct
     SET valor_procedimento = (
         SELECT COALESCE(SUM(cp.quantidade * COALESCE(cp.valor_unitario, p.valor)), 0)
@@ -161,7 +151,7 @@ BEGIN
         WHERE id_consulta IN (v_consulta_old, v_consulta_new)
     );
 
-    RETURN NULL; -- gatilho AFTER: o retorno é ignorado
+    RETURN NULL; -- Gatilho AFTER: o valor de retorno é ignorado
 END;
 $$ LANGUAGE plpgsql;
 
@@ -173,71 +163,60 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_atualiza_valor_procedimento_conta();
 
 
--- GATILHO 4: valida o pagamento antes de gravar.
---   * valor_pago é a parte do paciente e valor_convenio a do convênio; nenhum pode ser negativo;
---   * valor_convenio só existe quando possui_convenio é verdadeiro;
---   * com convênio, o paciente da consulta precisa de carteirinha válida na data do pagamento
---     (carteirinha sem validade conta como válida);
---   * a soma de todos os pagamentos da conta não pode passar do total da conta.
+-- ================================================================================
+-- GATILHO 4: Validação de Pagamentos
+-- Tabela: pagamento
+-- Momento: BEFORE INSERT OR UPDATE
+-- ================================================================================
+-- Garante a integridade financeira:
+--   * O pagamento deve estar vinculado a uma conta;
+--   * Não são permitidos valores negativos;
+--   * O pagamento deve conter algum valor maior que zero;
+--   * A soma dos pagamentos não pode ultrapassar o valor total da conta.
 CREATE OR REPLACE FUNCTION fn_valida_pagamento()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_total     NUMERIC(10,2);
-    v_ja_pago   NUMERIC(10,2);
-    v_paciente  INTEGER;
-    v_data      DATE := COALESCE(NEW.data_pagamento, CURRENT_DATE);
+    v_total_conta NUMERIC(10,2);
+    v_ja_pago     NUMERIC(10,2);
+    v_novo_pago   NUMERIC(10,2);
 BEGIN
+    -- 1. Verifica vínculo obrigatório com a conta
     IF NEW.id_conta IS NULL THEN
-        RAISE EXCEPTION 'O pagamento precisa estar ligado a uma conta.';
+        RAISE EXCEPTION 'O pagamento precisa estar vinculado a uma conta.';
     END IF;
 
+    -- 2. Impede valores negativos
     IF COALESCE(NEW.valor_pago, 0) < 0 OR COALESCE(NEW.valor_convenio, 0) < 0 THEN
         RAISE EXCEPTION 'Os valores do pagamento não podem ser negativos.';
     END IF;
 
-    IF COALESCE(NEW.valor_pago, 0) + COALESCE(NEW.valor_convenio, 0) <= 0 THEN
-        RAISE EXCEPTION 'O pagamento precisa ter algum valor.';
+    -- 3. Calcula o valor total deste novo lançamento
+    v_novo_pago := COALESCE(NEW.valor_pago, 0) + COALESCE(NEW.valor_convenio, 0);
+
+    IF v_novo_pago <= 0 THEN
+        RAISE EXCEPTION 'O pagamento deve ter um valor maior que zero.';
     END IF;
 
-    IF NOT COALESCE(NEW.possui_convenio, FALSE) AND COALESCE(NEW.valor_convenio, 0) <> 0 THEN
-        RAISE EXCEPTION 'Valor do convênio informado em um pagamento sem convênio.';
-    END IF;
+    -- 4. Obtém o valor total da conta
+    SELECT COALESCE(valor_total, valor_consulta + valor_procedimento, 0)
+      INTO v_total_conta
+      FROM conta
+     WHERE id_conta = NEW.id_conta;
 
-    IF NEW.possui_convenio THEN
-        SELECT c.id_paciente INTO v_paciente
-        FROM consulta c
-        WHERE c.id_conta = NEW.id_conta
-        LIMIT 1;
-
-        IF NOT EXISTS (
-            SELECT 1 FROM plano_convenio pc
-            WHERE pc.id_paciente = v_paciente
-              AND (pc.validade IS NULL OR pc.validade >= v_data)
-        ) THEN
-            RAISE EXCEPTION 'O paciente não tem convênio com carteirinha válida em %.',
-                to_char(v_data, 'DD/MM/YYYY');
-        END IF;
-    END IF;
-
-    -- Trava a conta até o fim da transação: dois pagamentos simultâneos não
-    -- conseguem, juntos, passar do total.
-    SELECT COALESCE(ct.valor_consulta, 0) + COALESCE(ct.valor_procedimento, 0)
-      INTO v_total
-      FROM conta ct
-     WHERE ct.id_conta = NEW.id_conta
-       FOR UPDATE;
-
-    SELECT COALESCE(SUM(COALESCE(pg.valor_pago, 0) + COALESCE(pg.valor_convenio, 0)), 0)
+    -- 5. Calcula o valor total já pago nesta conta anteriormente
+    -- (exclui o registro atual caso seja um UPDATE)
+    SELECT COALESCE(SUM(COALESCE(valor_pago, 0) + COALESCE(valor_convenio, 0)), 0)
       INTO v_ja_pago
-      FROM pagamento pg
-     WHERE pg.id_conta = NEW.id_conta
-       AND pg.id_pagamento IS DISTINCT FROM NEW.id_pagamento;
+      FROM pagamento
+     WHERE id_conta = NEW.id_conta
+       AND id_pagamento <> COALESCE(NEW.id_pagamento, -1);
 
-    IF v_ja_pago + COALESCE(NEW.valor_pago, 0) + COALESCE(NEW.valor_convenio, 0) > v_total THEN
-        RAISE EXCEPTION 'O pagamento passa do total da conta (total R$ %, já pago R$ %, saldo R$ %).',
-            replace(to_char(v_total, 'FM99999990.00'), '.', ','),
+    -- 6. Impede que o total pago ultrapasse o total da conta
+    IF (v_ja_pago + v_novo_pago) > v_total_conta THEN
+        RAISE EXCEPTION 'O pagamento ultrapassa o valor total da conta (Total: R$ %, Já pago: R$ %, Restante: R$ %).',
+            replace(to_char(v_total_conta, 'FM99999990.00'), '.', ','),
             replace(to_char(v_ja_pago, 'FM99999990.00'), '.', ','),
-            replace(to_char(v_total - v_ja_pago, 'FM99999990.00'), '.', ',');
+            replace(to_char(v_total_conta - v_ja_pago, 'FM99999990.00'), '.', ',');
     END IF;
 
     RETURN NEW;

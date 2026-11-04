@@ -27,12 +27,19 @@ def no_dia(dia):
     return f"{artigo} {DIAS_SEMANA[dia][0].lower()}"
 
 
+def posicao_do_dia(horario):
+    """Posição do dia na semana (segunda = 0). Dia desconhecido vai para o fim."""
+    dia = horario["dia_semana"]
+    return ORDEM_DIAS.index(dia) if dia in ORDEM_DIAS else len(ORDEM_DIAS)
+
+
 def ordenar_horarios(horarios):
-    return sorted(horarios, key=lambda h: (ORDEM_DIAS.index(h["dia_semana"]) if h["dia_semana"] in ORDEM_DIAS
-                                           else len(ORDEM_DIAS), str(h["hora_inicio"])))
+    """Ordena por dia da semana e, dentro do dia, pela hora de início."""
+    return sorted(horarios, key=lambda h: (posicao_do_dia(h), str(h["hora_inicio"])))
 
 
 class ServicoMedicos:
+    """Regras do médico. Fluxo de salvar: ler_formulario -> _validar -> DAO grava no banco."""
 
     def __init__(self):
         self.medico_dao = MedicoDAO()
@@ -151,6 +158,7 @@ class ServicoMedicos:
         return medico, telefones, especialidades, horarios
 
     def _validar_horarios(self, linhas, erros):
+        """Confere dia, início e fim de cada faixa e se faixas do mesmo dia não se sobrepõem."""
         horarios = []
         for linha in linhas:
             if linha["dia_semana"] not in DIAS_SEMANA:

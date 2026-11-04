@@ -1,107 +1,138 @@
 # Sistema de Controle de Clínica Médica
 
-Sistema web para uma clínica médica de pequeno porte: pacientes, médicos, agenda de consultas, prontuário, contas e pagamentos. Trabalho prático integrado das disciplinas de **Banco de Dados II** e **Análise e Desenvolvimento de Interfaces Web**.
+Sistema web para uma clínica médica de pequeno porte: pacientes, médicos, agenda de consultas, atendimento com prontuário, contas e pagamentos. Trabalho prático integrado das disciplinas de **Banco de Dados II** e **Análise e Desenvolvimento de Interfaces Web**.
 
 O planejamento e o andamento de cada fase estão em [plano-dev.md](plano-dev.md).
 
+---
+
 ## Tecnologias
 
-- Python 3 e Flask
-- PostgreSQL (psycopg2)
-- HTML, CSS e JavaScript, com Bootstrap 5.3 e Bootstrap Icons via CDN
+- **Linguagem:** Python 3 (Orientado a Objetos)
+- **Framework Web:** Flask (com Jinja Templates)
+- **Banco de Dados:** PostgreSQL (com driver `psycopg2`)
+- **Front-end:** HTML5, CSS3, JavaScript e Bootstrap 5.3 via CDN
 
-## Estrutura
+---
 
-| Pasta | Conteúdo |
-|---|---|
-| `banco/` | script de criação do banco, funções e gatilhos |
-| `docs/` | enunciado, DER e modelo lógico |
-| `dados/` | camada de dados: conexão e DAOs |
-| `negocio/` | regras de negócio |
-| `rotas/` | rotas Flask (um blueprint por área) |
-| `templates/` | páginas HTML (Jinja) |
-| `static/` | CSS, JavaScript e imagens |
+## Arquitetura em Três Camadas (POO)
 
-## Como rodar
+O projeto segue rigorosamente o padrão arquitetural em **Três Camadas**, com divisão clara de responsabilidades:
 
-1. Instale o Python 3.11 ou mais novo e o PostgreSQL.
+```
+[ Camada 1: APRESENTAÇÃO ]  -> rotas/ e templates/ (Flask + HTML/Jinja)
+       │
+       ▼
+[ Camada 2: NEGÓCIO ]       -> negocio/ (Classes de serviço, regras e validações)
+       │
+       ▼
+[ Camada 3: DADOS ]         -> dados/ (Classes DAO com SQL puro) e banco/
+       │
+       ▼
+[ BANCO DE DADOS ]          -> PostgreSQL
+```
 
-2. Crie e ative um ambiente virtual na pasta do projeto:
+| Camada | Pastas | Responsabilidade |
+|---|---|---|
+| **1. Apresentação** | `rotas/`, `templates/`, `static/` | Recebe as requisições HTTP, valida os parâmetros de entrada e renderiza as páginas para o usuário. |
+| **2. Negócio** | `negocio/` | Classes de serviço (`ServicoPacientes`, `ServicoMedicos`, `ServicoAgenda`, etc.) contendo regras de negócio, validações de dados e permissões. |
+| **3. Dados (DAO)** | `dados/`, `banco/` | Classes DAO (`PacienteDAO`, `MedicoDAO`, `ConsultaDAO`, etc.) responsáveis pelo acesso direto ao banco de dados com comandos SQL puros e seguros (`%s`). |
 
-   ```bash
-   python -m venv .venv
-   # Windows (PowerShell)
-   .venv\Scripts\Activate.ps1
-   # Linux / macOS
-   source .venv/bin/activate
-   ```
+---
 
-3. Instale as dependências:
+## Gatilhos e Funções no Banco (Etapa 3 - Banco de Dados II)
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+O arquivo [`banco/funcoes-gatilhos.sql`](banco/funcoes-gatilhos.sql) implementa **4 gatilhos essenciais** em PL/pgSQL que garantem a integridade das regras no PostgreSQL:
 
-4. Crie o banco, as tabelas e os gatilhos (a tabela de usuários fica em um arquivo separado):
+1. **`trg_valida_conflito_agenda` (Tabela `consulta`):** Impede que um médico ou uma sala tenham duas consultas marcadas no mesmo dia e horário.
+2. **`trg_valida_horario_medico` (Tabela `consulta`):** Garante que a consulta seja marcada apenas dentro do expediente e dias de atendimento do médico (`horario_medico`).
+3. **`trg_atualiza_valor_procedimento_conta` (Tabela `consulta_procedimento`):** Recalcula automaticamente o total de procedimentos na tabela `conta` sempre que itens são inseridos, alterados ou removidos.
+4. **`trg_valida_pagamento` (Tabela `pagamento`):** Impede pagamentos com valores negativos e bloqueia pagamentos que ultrapassem o valor total da conta.
 
-   ```bash
-   createdb -U postgres clinica_medica
-   psql -U postgres -d clinica_medica -f banco/Trabalho1_ClinicaMedica.sql
-   psql -U postgres -d clinica_medica -f banco/usuario.sql
-   psql -U postgres -d clinica_medica -f banco/funcoes-gatilhos.sql
-   ```
+---
 
-5. Copie `.env.exemplo` para `.env` e preencha a senha do PostgreSQL e a `SECRET_KEY`.
+## Como rodar o projeto
 
-6. Teste a conexão e crie o primeiro administrador (o comando pede nome, e-mail e senha):
+### 1. Pré-requisitos
+* Python 3.11 ou superior instalado
+* PostgreSQL instalado e em execução
 
-   ```bash
-   flask testar-banco
-   flask criar-admin
-   ```
-
-7. Suba o servidor e entre com o administrador criado:
-
-   ```bash
-   flask run
-   ```
-
-   Acesse http://127.0.0.1:5000. Com `FLASK_DEBUG=1` no `.env`, a página http://127.0.0.1:5000/estilo mostra todos os componentes visuais do sistema.
-
-## Criar usuários
-
-Os comandos abaixo rodam na pasta do projeto, com o ambiente virtual ativado e o `.env` preenchido.
-
-### Administrador (pelo terminal)
-
-O comando pergunta o nome, o e-mail e a senha, e pede a senha duas vezes:
+### 2. Ambiente virtual e dependências
+No terminal, na pasta raiz do projeto:
 
 ```bash
+# Criar o ambiente virtual
+python -m venv venv
+
+# Ativar no Windows (PowerShell):
+venv\Scripts\Activate.ps1
+
+# Ou ativar no Linux / macOS:
+source venv/bin/activate
+
+# Instalar as dependências:
+pip install -r requirements.txt
+```
+
+### 3. Banco de dados
+Crie o banco de dados `clinica_medica` e execute os scripts SQL na seguinte ordem:
+
+```bash
+createdb -U postgres clinica_medica
+psql -U postgres -d clinica_medica -f banco/Trabalho1_ClinicaMedica.sql
+psql -U postgres -d clinica_medica -f banco/usuario.sql
+psql -U postgres -d clinica_medica -f banco/funcoes-gatilhos.sql
+```
+
+### 4. Configuração das variáveis de ambiente
+Copie o arquivo `.env.exemplo` para `.env` e configure a senha do PostgreSQL e a `SECRET_KEY`:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=clinica_medica
+DB_USER=postgres
+DB_PASSWORD=sua_senha_aqui
+SECRET_KEY=chave_secreta_para_sessao
+FLASK_DEBUG=1
+```
+
+### 5. Testar conexão e criar o primeiro Administrador
+
+```bash
+# Testa a conexão com o PostgreSQL:
+flask testar-banco
+
+# Cria o usuário ADMIN interativamente (informe nome, e-mail e senha):
 flask criar-admin
 ```
 
-Para criar sem as perguntas, passe tudo nas opções:
-
+*(Opcional) Criação direta sem perguntas:*
 ```bash
 flask criar-admin --nome "Administrador" --email admin@clinica.com --senha segredo1
 ```
 
-A senha precisa ter pelo menos 6 caracteres, e o e-mail não pode estar em uso por outro usuário. O comando pode ser repetido para criar mais administradores.
+### 6. Executar o servidor web
 
-### Recepção e médico (pela interface)
+```bash
+flask run
+```
 
-Não há comando de terminal para esses perfis. Um administrador os cria no sistema:
+Acesse no navegador: **http://127.0.0.1:5000**
 
-1. Entre com um administrador e abra **Administração → Usuários → Novo usuário**.
-2. Preencha nome, e-mail, perfil e senha.
-3. No perfil **Médico**, escolha também o cadastro de médico ao qual o usuário corresponde. Por isso, o médico precisa estar cadastrado em **Médicos** antes. Cada médico pode ter apenas um usuário.
+---
 
-Na mesma tela dá para editar um usuário, trocar a senha dele e desativá-lo. Um usuário desativado não consegue entrar.
+## Perfis de Acesso
 
-## Perfis de acesso
-
-| Perfil | Acesso |
+| Perfil | Acesso no Sistema |
 |---|---|
-| Administrador | tudo, inclusive usuários, cadastros e relatórios |
-| Recepção | pacientes, agenda, médicos (consulta) e pagamentos |
-| Médico | a própria agenda e o prontuário das próprias consultas |
+| **Administrador (`ADMIN`)** | Acesso completo: gerencia usuários, médicos, pacientes, agenda, cadastros e relatórios. |
+| **Recepção (`RECEPCAO`)** | Acesso operacional: gerencia pacientes, agenda consultas e lança pagamentos. |
+| **Médico (`MEDICO`)** | Acesso clínico: visualiza a própria agenda e preenche o prontuário das próprias consultas. |
+
+---
+
+## Roteiro de Demonstração
+
+Para um roteiro detalhado de 7 passos demonstrando todo o fluxo do sistema e o acionamento de cada um dos 4 gatilhos ao vivo para o professor, consulte:
+👉 **[docs/roteiro-apresentacao-didatico.md](docs/roteiro-apresentacao-didatico.md)**

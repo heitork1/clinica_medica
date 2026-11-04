@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% from "macros.html" import cabecalho_pagina, campo, selecao %}
 
-{# Linhas dinâmicas: a mesma macro desenha as linhas existentes e o <template> das novas #}
+{# ==============================================================================
+   CAMADA DE APRESENTAÇÃO: Formulário de Paciente (Inclusão e Edição)
+   - Permite cadastrar ou atualizar os dados de um paciente.
+   - Envia dados para o backend via POST (rotas/pacientes.py -> ServicoPacientes).
+   - Suporta múltiplos telefones e múltiplos convênios (plano_convenio).
+   ============================================================================== #}
+
+{# Macro: Linha dinâmica de telefone #}
 {% macro linha_telefone(valor="") %}
 <div class="linha-dinamica">
   <div class="campos">
@@ -9,19 +16,20 @@
            data-mascara="telefone" inputmode="numeric" maxlength="15" placeholder="(00) 00000-0000">
     <div class="invalid-feedback">Telefone incompleto.</div>
   </div>
-  <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover telefone">
+  <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover telefone" title="Remover telefone">
     <i class="bi bi-x-lg" aria-hidden="true"></i>
   </button>
 </div>
 {% endmacro %}
 
+{# Macro: Linha dinâmica para convênio de saúde (tabela plano_convenio) #}
 {% macro linha_convenio(convenios, plano={}) %}
 <div class="linha-dinamica">
   <div class="campos row g-2">
     <div class="col-md-4">
       <span class="rotulo-linha d-md-none">Convênio</span>
       <select class="form-select" name="id_convenio" aria-label="Convênio">
-        <option value="">Selecione...</option>
+        <option value="">Selecione o convênio...</option>
         {% for c in convenios %}
           <option value="{{ c.id_convenio }}" {% if c.id_convenio|string == plano.get("id_convenio")|string %}selected{% endif %}>{{ c.nome }}</option>
         {% endfor %}
@@ -30,7 +38,7 @@
     <div class="col-md-3">
       <span class="rotulo-linha d-md-none">Nº da carteirinha</span>
       <input class="form-control" type="text" name="numero_carteirinha" value="{{ plano.get('numero_carteirinha') or '' }}"
-             aria-label="Número da carteirinha" maxlength="50">
+             aria-label="Número da carteirinha" maxlength="50" placeholder="Número">
     </div>
     <div class="col-md-2">
       <span class="rotulo-linha d-md-none">Validade</span>
@@ -39,10 +47,10 @@
     <div class="col-md-3">
       <span class="rotulo-linha d-md-none">Tipo de plano</span>
       <input class="form-control" type="text" name="tipo_plano" value="{{ plano.get('tipo_plano') or '' }}"
-             aria-label="Tipo de plano" maxlength="50" placeholder="Ex.: Enfermaria">
+             aria-label="Tipo de plano" maxlength="50" placeholder="Ex.: Básico, Enfermaria">
     </div>
   </div>
-  <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover convênio">
+  <button type="button" class="btn btn-outline-secondary" data-remover-linha aria-label="Remover convênio" title="Remover convênio">
     <i class="bi bi-x-lg" aria-hidden="true"></i>
   </button>
 </div>
@@ -52,6 +60,7 @@
 {% block titulo %}{{ titulo }}{% endblock %}
 
 {% block conteudo %}
+{# Cabeçalho da Página com Título e Botão Voltar #}
 {% call cabecalho_pagina(titulo, paciente.nome if paciente else None) %}
   <a class="btn btn-outline-secondary"
      href="{{ url_for('pacientes.ficha', id_paciente=paciente.id_paciente) if paciente else url_for('pacientes.lista') }}">
@@ -63,29 +72,38 @@
   <div class="card-body">
     <form method="post" class="needs-validation" novalidate>
 
+      <!-- 1. SEÇÃO: DADOS PESSOAIS (Tabela: paciente) -->
       <section class="secao-formulario">
         <h2>Dados pessoais</h2>
         <div class="row g-3">
           {{ campo("nome", "Nome completo", valor=dados.get("nome"), obrigatorio=True, coluna="col-md-8",
                    erro=erros.nome, mensagem_invalido="Informe o nome completo.", atributos={"maxlength": 100}) }}
+
           {{ campo("data_nasc", "Data de nascimento", valor=dados.get("data_nasc"), tipo="date", coluna="col-md-4",
                    erro=erros.data_nasc, atributos={"max": hoje}) }}
+
           {{ campo("cpf", "CPF", valor=dados.get("cpf"), obrigatorio=True, coluna="col-md-4", erro=erros.cpf,
                    mensagem_invalido="Informe um CPF válido.",
                    atributos={"data-mascara": "cpf", "inputmode": "numeric", "maxlength": 14, "placeholder": "000.000.000-00"}) }}
+
           {{ campo("rg", "RG", valor=dados.get("rg"), coluna="col-md-4", erro=erros.rg, atributos={"maxlength": 20}) }}
+
           {{ selecao("sexo", "Sexo", opcoes_sexo, selecionado=dados.get("sexo"), texto_vazio="Não informado",
                      coluna="col-md-4", erro=erros.sexo) }}
         </div>
       </section>
 
+      <!-- 2. SEÇÃO: CONTATO (E-mail, Endereço e Telefones) -->
       <section class="secao-formulario">
         <h2>Contato</h2>
         <div class="row g-3">
           {{ campo("email", "E-mail", valor=dados.get("email"), tipo="email", coluna="col-md-6", erro=erros.email,
                    mensagem_invalido="Informe um e-mail válido.", atributos={"maxlength": 100}) }}
+
           {{ campo("endereco", "Endereço", valor=dados.get("endereco"), coluna="col-md-6", erro=erros.endereco,
                    atributos={"maxlength": 200, "placeholder": "Rua, número, bairro, cidade"}) }}
+
+          {# Lista de Telefones do Paciente (Tabela: telefone_paciente) #}
           <div class="col-md-6">
             <span class="form-label d-block">Telefones</span>
             <div data-linhas data-linhas-minimo="1">
@@ -104,6 +122,7 @@
         </div>
       </section>
 
+      <!-- 3. SEÇÃO: PLANOS E CONVÊNIOS (Tabela associativa: plano_convenio) -->
       <section class="secao-formulario">
         <h2>Convênios</h2>
         {% if convenios %}
@@ -127,7 +146,7 @@
               <i class="bi bi-plus-lg" aria-hidden="true"></i> Adicionar convênio
             </button>
           </div>
-          <p class="form-text mb-0">Sem convênio, o paciente é atendido como particular.</p>
+          <p class="form-text mb-0">Se o paciente não possuir convênio cadastrado, ele será atendido como particular.</p>
           {% if erros.convenios %}<div class="invalid-feedback d-block">{{ erros.convenios }}</div>{% endif %}
         {% else %}
           <p class="text-body-secondary mb-0">
@@ -137,6 +156,7 @@
         {% endif %}
       </section>
 
+      <!-- BOTÕES DE AÇÃO DO FORMULÁRIO -->
       <div class="rodape-formulario">
         <a class="btn btn-outline-secondary"
            href="{{ url_for('pacientes.ficha', id_paciente=paciente.id_paciente) if paciente else url_for('pacientes.lista') }}">Cancelar</a>
